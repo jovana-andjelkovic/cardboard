@@ -1,16 +1,21 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useProjectStore } from './store/projectStore';
 import { useUrlSync } from './utils/urlState';
 import { exportToFile, importFromFile } from './utils/fileIO';
 import { EditorPanel } from './features/editor/EditorPanel';
+import { WireframePreview } from './features/wireframe/WireframePreview';
 
-type View = 'editor' | 'preview';
+type View = 'split' | 'editor' | 'preview';
 
 function App() {
   // Initialize URL sync
   useUrlSync();
 
-  const [activeView, setActiveView] = useState<View>('editor');
+  // Check URL params for preview-only mode
+  const urlParams = new URLSearchParams(window.location.search);
+  const isPreviewOnlyMode = urlParams.get('mode') === 'preview';
+
+  const [activeView, setActiveView] = useState<View>(isPreviewOnlyMode ? 'preview' : 'split');
 
   const getSnapshot = useProjectStore((state) => state.getSnapshot);
   const loadSnapshot = useProjectStore((state) => state.loadSnapshot);
@@ -41,6 +46,15 @@ function App() {
     input.click();
   };
 
+  // Hide top bar in preview-only mode
+  if (isPreviewOnlyMode) {
+    return (
+      <div className="h-screen bg-gray-100">
+        <WireframePreview />
+      </div>
+    );
+  }
+
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       {/* Top bar */}
@@ -50,6 +64,16 @@ function App() {
 
           {/* View toggle */}
           <div className="flex border border-gray-300 rounded overflow-hidden">
+            <button
+              onClick={() => setActiveView('split')}
+              className={`px-4 py-1.5 text-sm font-medium transition-colors ${
+                activeView === 'split'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Split
+            </button>
             <button
               onClick={() => setActiveView('editor')}
               className={`px-4 py-1.5 text-sm font-medium transition-colors ${
@@ -89,25 +113,26 @@ function App() {
         </div>
       </div>
 
-      {/* Single panel view */}
+      {/* Panel view */}
       <div className="flex-1 overflow-hidden">
-        {activeView === 'editor' ? (
+        {activeView === 'split' ? (
+          <div className="h-full flex">
+            {/* Left: Editor */}
+            <div className="w-1/2 border-r border-gray-200 bg-white overflow-hidden">
+              <EditorPanel />
+            </div>
+            {/* Right: Wireframe */}
+            <div className="w-1/2 bg-gray-100 overflow-hidden">
+              <WireframePreview />
+            </div>
+          </div>
+        ) : activeView === 'editor' ? (
           <div className="h-full bg-white">
             <EditorPanel />
           </div>
         ) : (
-          <div className="h-full bg-gray-100 overflow-auto">
-            <div className="p-6">
-              <h2 className="text-lg font-medium text-gray-700 mb-4">
-                Preview (Debug - Store State)
-              </h2>
-              <p className="text-sm text-gray-500 mb-4">
-                This will be replaced with the live wireframe in Phase 3.
-              </p>
-              <pre className="bg-white border border-gray-300 rounded p-4 text-xs overflow-auto">
-                {JSON.stringify(getSnapshot(), null, 2)}
-              </pre>
-            </div>
+          <div className="h-full bg-gray-100">
+            <WireframePreview />
           </div>
         )}
       </div>
