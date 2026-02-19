@@ -32,16 +32,36 @@ type ProjectStore = ProjectState & ProjectActions;
 // Helper function to create initial state
 const createInitialState = (): ProjectState => {
   const mainNavGroupId = nanoid();
+  const pageGroupId = nanoid();
+
+  // Sample cards for a project management app
+  const sampleCards: CardDefinition[] = [
+    { id: nanoid(), label: 'Dashboard', description: 'Overview of all projects and tasks' },
+    { id: nanoid(), label: 'My Tasks', description: 'Personal task list' },
+    { id: nanoid(), label: 'Team Members', description: 'View and manage team' },
+    { id: nanoid(), label: 'Project Settings', description: 'Configure project preferences' },
+    { id: nanoid(), label: 'Calendar', description: 'Schedule and deadlines' },
+    { id: nanoid(), label: 'Notifications', description: 'Activity alerts' },
+    { id: nanoid(), label: 'Reports', description: 'Analytics and insights' },
+    { id: nanoid(), label: 'Billing', description: 'Payment and invoices' },
+    { id: nanoid(), label: 'Profile Settings', description: 'User preferences' },
+    { id: nanoid(), label: 'Activity Feed', description: 'Recent updates' },
+    { id: nanoid(), label: 'File Storage', description: 'Document repository' },
+    { id: nanoid(), label: 'Integrations', description: 'Third-party apps' },
+    { id: nanoid(), label: 'Help Center', description: 'Documentation and support' },
+    { id: nanoid(), label: 'Search', description: 'Find anything' },
+    { id: nanoid(), label: 'Time Tracking', description: 'Log hours worked' },
+  ];
 
   return {
     meta: {
       id: nanoid(),
-      title: 'Untitled Project',
+      title: 'Project Management App',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       version: 1,
     },
-    cards: [],
+    cards: sampleCards,
     groups: [
       {
         id: mainNavGroupId,
@@ -50,9 +70,16 @@ const createInitialState = (): ProjectState => {
         prototypeRole: 'main-nav',
         order: 0,
       },
+      {
+        id: pageGroupId,
+        label: 'Dashboard Page',
+        cardIds: [],
+        prototypeRole: 'page',
+        order: 1,
+      },
     ],
     connections: [],
-    unsortedCardIds: [],
+    unsortedCardIds: sampleCards.map(card => card.id),
   };
 };
 

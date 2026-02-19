@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useProjectStore } from './store/projectStore';
 import { useUrlSync } from './utils/urlState';
 import { exportToFile, importFromFile } from './utils/fileIO';
+import { EditorPanel } from './features/editor/EditorPanel';
 
 type View = 'editor' | 'preview';
 
@@ -13,23 +14,7 @@ function App() {
 
   const getSnapshot = useProjectStore((state) => state.getSnapshot);
   const loadSnapshot = useProjectStore((state) => state.loadSnapshot);
-  const addCard = useProjectStore((state) => state.addCard);
   const meta = useProjectStore((state) => state.meta);
-  const cards = useProjectStore((state) => state.cards);
-
-  const hasInitialized = useRef(false);
-
-  // Add sample cards on first load (if no cards exist)
-  useEffect(() => {
-    if (!hasInitialized.current && cards.length === 0) {
-      addCard('Home', 'Main landing page');
-      addCard('About', 'Company information');
-      addCard('Products', 'Product catalog');
-      addCard('Contact', 'Get in touch');
-      addCard('Blog', 'Latest articles');
-      hasInitialized.current = true;
-    }
-  }, [addCard, cards.length]);
 
   // Export handler
   const handleExport = () => {
@@ -107,27 +92,21 @@ function App() {
       {/* Single panel view */}
       <div className="flex-1 overflow-hidden">
         {activeView === 'editor' ? (
-          <div className="h-full bg-white overflow-auto">
-            <div className="p-6">
-              <h2 className="text-lg font-medium text-gray-700 mb-4">Editor</h2>
-              <p className="text-gray-500">Card sorting interface will go here.</p>
-              <div className="mt-4 space-y-2">
-                <p className="text-sm text-gray-600">Sample cards in store:</p>
-                <ul className="list-disc list-inside text-sm text-gray-700">
-                  {cards.map((card) => (
-                    <li key={card.id}>
-                      {card.label} {card.description && `- ${card.description}`}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
+          <div className="h-full bg-white">
+            <EditorPanel />
           </div>
         ) : (
           <div className="h-full bg-gray-100 overflow-auto">
             <div className="p-6">
-              <h2 className="text-lg font-medium text-gray-700 mb-4">Preview</h2>
-              <p className="text-gray-500">Live wireframe will render here.</p>
+              <h2 className="text-lg font-medium text-gray-700 mb-4">
+                Preview (Debug - Store State)
+              </h2>
+              <p className="text-sm text-gray-500 mb-4">
+                This will be replaced with the live wireframe in Phase 3.
+              </p>
+              <pre className="bg-white border border-gray-300 rounded p-4 text-xs overflow-auto">
+                {JSON.stringify(getSnapshot(), null, 2)}
+              </pre>
             </div>
           </div>
         )}
