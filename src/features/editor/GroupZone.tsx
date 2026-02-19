@@ -5,6 +5,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useProjectStore } from '../../store/projectStore';
 import { CardItem } from './CardItem';
+import { ConnectionBadge } from '../connections/ConnectionBadge';
 import type { Group, CardDefinition } from '../../store/types';
 
 interface SortableCardProps {
@@ -44,15 +45,35 @@ const SortableCard = ({ card, group }: SortableCardProps) => {
 
 interface GroupZoneProps {
   group: Group;
+  onConnectionClick?: (groupId: string) => void;
 }
 
-export const GroupZone = ({ group }: GroupZoneProps) => {
+export const GroupZone = ({ group, onConnectionClick }: GroupZoneProps) => {
   const cards = useProjectStore((state) => state.cards);
+  const groups = useProjectStore((state) => state.groups);
   const updateGroup = useProjectStore((state) => state.updateGroup);
   const removeGroup = useProjectStore((state) => state.removeGroup);
+  const isConnectionMode = useProjectStore((state) => state.isConnectionMode);
+  const selectedSourceGroupId = useProjectStore((state) => state.selectedSourceGroupId);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editLabel, setEditLabel] = useState(group.label);
+
+  // Connection mode states
+  const isSelectedSource = selectedSourceGroupId === group.id;
+  const selectedSourceGroup = groups.find((g) => g.id === selectedSourceGroupId);
+
+  // Determine if this group is a valid source (can initiate connections)
+  const isValidSource =
+    group.prototypeRole === 'main-nav' || group.prototypeRole === 'secondary-nav';
+
+  // Determine if this group is a valid target for the selected source
+  const isValidTarget =
+    selectedSourceGroup &&
+    selectedSourceGroupId !== group.id &&
+    (group.prototypeRole === 'page' || group.prototypeRole === 'secondary-nav');
+
+  const isInvalidTarget = isConnectionMode && selectedSourceGroupId && !isValidTarget && !isSelectedSource;
 
   const { setNodeRef, isOver } = useDroppable({
     id: group.id,
@@ -87,8 +108,36 @@ export const GroupZone = ({ group }: GroupZoneProps) => {
 
   const roleBadgeStyle = roleBadgeStyles[group.prototypeRole];
 
+  const handleClick = () => {
+    if (isConnectionMode && onConnectionClick) {
+      onConnectionClick(group.id);
+    }
+  };
+
+  // Conditional styling based on connection mode
+  let borderClass = 'border-gray-300';
+  let cursorClass = '';
+  let opacityClass = '';
+
+  if (isConnectionMode) {
+    if (isSelectedSource) {
+      borderClass = 'border-indigo-500 border-2';
+    } else if (isValidTarget) {
+      borderClass = 'border-indigo-300 border-2 border-dashed';
+      cursorClass = 'cursor-pointer';
+    } else if (isInvalidTarget) {
+      opacityClass = 'opacity-50';
+    } else if (isValidSource && !selectedSourceGroupId) {
+      borderClass = 'border-blue-400 border-dashed';
+      cursorClass = 'cursor-pointer';
+    }
+  }
+
   return (
-    <div className="bg-white border border-gray-300 rounded-lg overflow-hidden">
+    <div
+      className={`bg-white border rounded-lg overflow-hidden transition-all ${borderClass} ${cursorClass} ${opacityClass}`}
+      onClick={handleClick}
+    >
       {/* Header */}
       <div className="bg-gray-50 border-b border-gray-300 px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -130,18 +179,24 @@ export const GroupZone = ({ group }: GroupZoneProps) => {
         </div>
 
         <div className="flex items-center gap-2">
-          {!isEditing && (
+          {!isEditing && !isConnectionMode && (
             <button
-              onClick={() => setIsEditing(true)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsEditing(true);
+              }}
               className="p-1 text-gray-500 hover:text-gray-700 text-xs"
               title="Rename group"
             >
               ✎
             </button>
           )}
-          {group.prototypeRole !== 'main-nav' && (
+          {group.prototypeRole !== 'main-nav' && !isConnectionMode && (
             <button
-              onClick={handleDelete}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDelete();
+              }}
               className="p-1 text-red-500 hover:text-red-700 text-xs"
               title="Delete group"
             >
@@ -150,6 +205,13 @@ export const GroupZone = ({ group }: GroupZoneProps) => {
           )}
         </div>
       </div>
+
+      {/* Connection Badge (shown in normal mode) */}
+      {!isConnectionMode && (
+        <div className="px-4">
+          <ConnectionBadge groupId={group.id} />
+        </div>
+      )}
 
       {/* Drop zone */}
       <div

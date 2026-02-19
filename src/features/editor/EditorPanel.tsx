@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -16,6 +16,7 @@ import { useProjectStore } from '../../store/projectStore';
 import { Deck } from './Deck';
 import { GroupsList } from './GroupsList';
 import { CardItem } from './CardItem';
+import { ConnectionPanel } from '../connections/ConnectionPanel';
 import type { CardDefinition } from '../../store/types';
 
 export const EditorPanel = () => {
@@ -25,7 +26,25 @@ export const EditorPanel = () => {
   const returnCardToDeck = useProjectStore((state) => state.returnCardToDeck);
   const reorderCardInGroup = useProjectStore((state) => state.reorderCardInGroup);
 
+  // Connection mode state
+  const isConnectionMode = useProjectStore((state) => state.isConnectionMode);
+  const selectedSourceGroupId = useProjectStore((state) => state.selectedSourceGroupId);
+  const setConnectionMode = useProjectStore((state) => state.setConnectionMode);
+  const setSelectedSource = useProjectStore((state) => state.setSelectedSource);
+  const addConnection = useProjectStore((state) => state.addConnection);
+
   const [activeCard, setActiveCard] = useState<CardDefinition | null>(null);
+
+  // Clear selection on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isConnectionMode) {
+        setSelectedSource(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isConnectionMode, setSelectedSource]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -106,6 +125,86 @@ export const EditorPanel = () => {
     }
   };
 
+  // Handle connection click
+  const handleConnectionClick = (groupId: string) => {
+    if (!isConnectionMode) return;
+
+    const clickedGroup = groups.find((g) => g.id === groupId);
+    if (!clickedGroup) return;
+
+    // If no source selected, select this group as source (if valid)
+    if (!selectedSourceGroupId) {
+      const isValidSource =
+        clickedGroup.prototypeRole === 'main-nav' ||
+        clickedGroup.prototypeRole === 'secondary-nav';
+      if (isValidSource) {
+        setSelectedSource(groupId);
+      }
+      return;
+    }
+
+    // If clicking the selected source again, deselect it
+    if (selectedSourceGroupId === groupId) {
+      setSelectedSource(null);
+      return;
+    }
+
+    // Otherwise, try to create a connection
+    const isValidTarget =
+      clickedGroup.prototypeRole === 'page' ||
+      clickedGroup.prototypeRole === 'secondary-nav';
+
+    if (isValidTarget) {
+      addConnection(selectedSourceGroupId, groupId);
+      setSelectedSource(null); // Clear selection after creating connection
+    }
+  };
+
+  const editorContent = (
+    <div className="h-full overflow-auto">
+      <div className="p-6 space-y-6">
+        {/* Connection mode toggle and panel */}
+        <div className="flex items-start gap-4">
+          <div className="flex-1">
+            <div className="flex items-center gap-3 mb-4">
+              <button
+                onClick={() => setConnectionMode(!isConnectionMode)}
+                className={`px-4 py-2 text-sm font-medium rounded transition-colors ${
+                  isConnectionMode
+                    ? 'bg-indigo-500 text-white hover:bg-indigo-600'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                {isConnectionMode ? '✓ Connection Mode' : '🔗 Edit Connections'}
+              </button>
+              {isConnectionMode && selectedSourceGroupId && (
+                <span className="text-sm text-gray-600">
+                  Click a target page or section to connect
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="w-80">
+            <ConnectionPanel />
+          </div>
+        </div>
+
+        {/* Deck - sticky at top */}
+        <div className="sticky top-0 z-10 bg-white pb-4">
+          <Deck />
+        </div>
+
+        {/* Groups */}
+        <GroupsList onConnectionClick={handleConnectionClick} />
+      </div>
+    </div>
+  );
+
+  // Wrap in DndContext only if not in connection mode
+  if (isConnectionMode) {
+    return editorContent;
+  }
+
   return (
     <DndContext
       sensors={sensors}
@@ -113,17 +212,7 @@ export const EditorPanel = () => {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="h-full overflow-auto">
-        <div className="p-6 space-y-6">
-          {/* Deck - sticky at top */}
-          <div className="sticky top-0 z-10 bg-white pb-4">
-            <Deck />
-          </div>
-
-          {/* Groups */}
-          <GroupsList />
-        </div>
-      </div>
+      {editorContent}
 
       {/* Drag overlay */}
       <DragOverlay>

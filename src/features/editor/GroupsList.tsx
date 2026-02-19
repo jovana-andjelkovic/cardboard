@@ -3,7 +3,11 @@ import { useProjectStore } from '../../store/projectStore';
 import { GroupZone } from './GroupZone';
 import type { PrototypeRole } from '../../store/types';
 
-export const GroupsList = () => {
+interface GroupsListProps {
+  onConnectionClick?: (groupId: string) => void;
+}
+
+export const GroupsList = ({ onConnectionClick }: GroupsListProps) => {
   const groups = useProjectStore((state) => state.groups);
   const addGroup = useProjectStore((state) => state.addGroup);
 
@@ -38,7 +42,7 @@ export const GroupsList = () => {
       {/* Existing groups in columns */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
         {sortedGroups.map((group) => (
-          <GroupZone key={group.id} group={group} />
+          <GroupZone key={group.id} group={group} onConnectionClick={onConnectionClick} />
         ))}
       </div>
 

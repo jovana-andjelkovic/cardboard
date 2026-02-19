@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { nanoid } from 'nanoid';
-import type { ProjectState, CardDefinition, Group, PrototypeRole } from './types';
+import type { ProjectState, CardDefinition, Group, PrototypeRole, Connection } from './types';
 
 interface ProjectActions {
   // Card actions
@@ -21,13 +21,23 @@ interface ProjectActions {
   // Connection actions
   addConnection: (fromGroupId: string, toGroupId: string) => void;
   removeConnection: (fromGroupId: string, toGroupId: string) => void;
+  getConnectionsForGroup: (groupId: string) => { outgoing: Connection[], incoming: Connection[] };
+
+  // Connection mode actions
+  setConnectionMode: (on: boolean) => void;
+  setSelectedSource: (groupId: string | null) => void;
 
   // Snapshot actions
   getSnapshot: () => ProjectState;
   loadSnapshot: (state: ProjectState) => void;
 }
 
-type ProjectStore = ProjectState & ProjectActions;
+interface UIState {
+  isConnectionMode: boolean;
+  selectedSourceGroupId: string | null;
+}
+
+type ProjectStore = ProjectState & ProjectActions & UIState;
 
 // Helper function to create initial state
 const createInitialState = (): ProjectState => {
@@ -53,6 +63,9 @@ const createInitialState = (): ProjectState => {
     { id: nanoid(), label: 'Time Tracking', description: 'Log hours worked' },
   ];
 
+  const projectsPageId = nanoid();
+  const settingsPageId = nanoid();
+
   return {
     meta: {
       id: nanoid(),
@@ -77,14 +90,36 @@ const createInitialState = (): ProjectState => {
         prototypeRole: 'page',
         order: 1,
       },
+      {
+        id: projectsPageId,
+        label: 'Projects Page',
+        cardIds: [],
+        prototypeRole: 'page',
+        order: 2,
+      },
+      {
+        id: settingsPageId,
+        label: 'Settings Page',
+        cardIds: [],
+        prototypeRole: 'page',
+        order: 3,
+      },
     ],
-    connections: [],
+    connections: [
+      // Sample connections to demonstrate the feature
+      { fromGroupId: mainNavGroupId, toGroupId: pageGroupId },
+      { fromGroupId: mainNavGroupId, toGroupId: projectsPageId },
+    ],
     unsortedCardIds: sampleCards.map(card => card.id),
   };
 };
 
 export const useProjectStore = create<ProjectStore>((set, get) => ({
   ...createInitialState(),
+
+  // UI State
+  isConnectionMode: false,
+  selectedSourceGroupId: null,
 
   // Card actions
   addCard: (label: string, description?: string) => {
@@ -359,6 +394,25 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     }));
   },
 
+  getConnectionsForGroup: (groupId: string) => {
+    const state = get();
+    const outgoing = state.connections.filter(conn => conn.fromGroupId === groupId);
+    const incoming = state.connections.filter(conn => conn.toGroupId === groupId);
+    return { outgoing, incoming };
+  },
+
+  // Connection mode actions
+  setConnectionMode: (on: boolean) => {
+    set({
+      isConnectionMode: on,
+      selectedSourceGroupId: on ? null : null, // Clear selection when toggling mode
+    });
+  },
+
+  setSelectedSource: (groupId: string | null) => {
+    set({ selectedSourceGroupId: groupId });
+  },
+
   // Snapshot actions
   getSnapshot: () => {
     const state = get();
@@ -372,6 +426,11 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   loadSnapshot: (snapshot: ProjectState) => {
-    set(snapshot);
+    set({
+      ...snapshot,
+      // Preserve UI state when loading snapshot
+      isConnectionMode: false,
+      selectedSourceGroupId: null,
+    });
   },
 }));
