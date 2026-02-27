@@ -3,7 +3,7 @@ import { useProjectStore } from '../../store/projectStore';
 
 interface WireframeTopNavProps {
   activeMainNavCardId: string | null;
-  onMainNavClick: (cardId: string, index: number) => void;
+  onMainNavClick: (cardId: string) => void;
 }
 
 export const WireframeTopNav = ({
@@ -27,13 +27,13 @@ export const WireframeTopNav = ({
     <div className="wf-topnav">
       <div className="wf-topnav-title">{meta.title}</div>
       <div className="wf-topnav-links">
-        {mainNavCards.map((card, index) => (
+        {mainNavCards.map((card) => (
           <div
             key={card.id}
             className={`wf-topnav-link ${
               activeMainNavCardId === card.id ? 'wf-topnav-link--active' : ''
             }`}
-            onClick={() => onMainNavClick(card.id, index)}
+            onClick={() => onMainNavClick(card.id)}
           >
             {card.label}
           </div>

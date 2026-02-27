@@ -24,7 +24,18 @@ export type Group = {
   cardIds: string[];           // ordered list of card IDs in this group
   prototypeRole: PrototypeRole;
   order: number;               // position in the wireframe
-  linkedFrom?: string;         // ID of nav group that links to this page/secondary-nav
+  linkedFrom?: string;         // DEPRECATED — kept for JSON import compatibility, do not write
+  // The card ID that "owns" this group:
+  // - For 'page' groups: the main-nav card that auto-created this page
+  // - For 'secondary-nav' groups: the card that triggered secondary nav creation
+  //   (undefined if secondary-nav was added manually via the button)
+  ownerCardId?: string;
+};
+
+export type PendingSecondaryNavPrompt = {
+  cardId: string;            // The main-nav card that was dragged into a page
+  targetPageGroupId: string; // The page group it was dropped into
+  cardLabel: string;         // For display in the modal
 };
 
 export type Connection = {

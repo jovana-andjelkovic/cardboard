@@ -5,7 +5,7 @@ import type { Group } from '../../store/types';
 interface WireframeSidebarProps {
   secondaryNavGroup: Group;
   activeSecondaryLinkId: string | null;
-  onSecondaryLinkClick: (cardId: string, index: number) => void;
+  onSecondaryLinkClick: (cardId: string) => void;
 }
 
 export const WireframeSidebar = ({
@@ -21,13 +21,13 @@ export const WireframeSidebar = ({
 
   return (
     <div className="wf-sidebar">
-      {secondaryNavCards.map((card, index) => (
+      {secondaryNavCards.map((card) => (
         <div
           key={card.id}
           className={`wf-sidebar-link ${
             activeSecondaryLinkId === card.id ? 'wf-sidebar-link--active' : ''
           }`}
-          onClick={() => onSecondaryLinkClick(card.id, index)}
+          onClick={() => onSecondaryLinkClick(card.id)}
         >
           {card.label}
         </div>

@@ -1,13 +1,20 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { useProjectStore } from '../../store/projectStore';
 import { CardItem } from './CardItem';
+import { parseMarkdownCards } from '../../utils/markdownImport';
+import { exportCardsToMarkdown } from '../../utils/fileIO';
 
 export const Deck = () => {
   const cards = useProjectStore((state) => state.cards);
   const unsortedCardIds = useProjectStore((state) => state.unsortedCardIds);
   const addCard = useProjectStore((state) => state.addCard);
+  const bulkAddCards = useProjectStore((state) => state.bulkAddCards);
+  const replaceAllCards = useProjectStore((state) => state.replaceAllCards);
+  const getSnapshot = useProjectStore((state) => state.getSnapshot);
 
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importFeedback, setImportFeedback] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [newLabel, setNewLabel] = useState('');
   const [newDescription, setNewDescription] = useState('');
@@ -32,6 +39,28 @@ export const Deck = () => {
     }
   };
 
+  const handleMarkdownImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const text = await file.text();
+    const parsed = parseMarkdownCards(text);
+
+    window.location.hash = '';
+    replaceAllCards(parsed);
+
+    setImportFeedback(
+      parsed.length === 0
+        ? 'No cards found in file'
+        : `${parsed.length} card${parsed.length === 1 ? '' : 's'} added`
+    );
+
+    // Reset input so the same file can be re-imported if the user edits it
+    e.target.value = '';
+
+    setTimeout(() => setImportFeedback(null), 3000);
+  };
+
   const handleCancel = () => {
     setNewLabel('');
     setNewDescription('');
@@ -45,6 +74,13 @@ export const Deck = () => {
         isOver ? 'border-blue-400 bg-blue-50' : 'border-gray-300'
       }`}
     >
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".md,text/markdown"
+        className="hidden"
+        onChange={handleMarkdownImport}
+      />
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold text-gray-700">
           {unsortedCards.length === 0 ? (
@@ -54,12 +90,29 @@ export const Deck = () => {
           )}
         </h3>
         {!isAdding && (
-          <button
-            onClick={() => setIsAdding(true)}
-            className="px-3 py-1 text-xs font-medium bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-          >
-            + Add Card
-          </button>
+          <div className="flex items-center gap-2">
+            {importFeedback && (
+              <span className="text-xs text-green-600 font-medium">{importFeedback}</span>
+            )}
+            <button
+              onClick={() => exportCardsToMarkdown(getSnapshot())}
+              className="px-3 py-1 text-xs font-medium bg-gray-100 text-gray-700 border border-gray-300 rounded hover:bg-gray-200 transition-colors"
+            >
+              Export .md
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="px-3 py-1 text-xs font-medium bg-gray-100 text-gray-700 border border-gray-300 rounded hover:bg-gray-200 transition-colors"
+            >
+              Import .md
+            </button>
+            <button
+              onClick={() => setIsAdding(true)}
+              className="px-3 py-1 text-xs font-medium bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+            >
+              + Add Card
+            </button>
+          </div>
         )}
       </div>
 

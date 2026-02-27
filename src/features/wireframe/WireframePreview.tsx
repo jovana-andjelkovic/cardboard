@@ -5,136 +5,73 @@ import { WireframeTopNav } from './WireframeTopNav';
 import { WireframeSidebar } from './WireframeSidebar';
 import { WireframeContentArea } from './WireframeContentArea';
 import { WireframeEmptyState } from './WireframeEmptyState';
-import type { Group } from '../../store/types';
 
 export const WireframePreview = () => {
+  const meta = useProjectStore((state) => state.meta);
+  const cards = useProjectStore((state) => state.cards);
   const groups = useProjectStore((state) => state.groups);
   const connections = useProjectStore((state) => state.connections);
+  const mainNavPosition = useProjectStore((state) => state.mainNavPosition);
 
   const [activeMainNavCardId, setActiveMainNavCardId] = useState<string | null>(null);
   const [activeSecondaryNavCardId, setActiveSecondaryNavCardId] = useState<string | null>(null);
-  const [activePage, setActivePage] = useState<Group | null>(null);
-  const [activeSecondaryNav, setActiveSecondaryNav] = useState<Group | null>(null);
 
-  // Find the main nav group
   const mainNavGroup = groups.find((g) => g.prototypeRole === 'main-nav');
 
-  // Initialize on first render - activate the first main nav link if connections exist
-  useEffect(() => {
-    if (!mainNavGroup || activeMainNavCardId) return;
-
-    const mainNavConnections = connections.filter(
-      (conn) => conn.fromGroupId === mainNavGroup.id
-    );
-
-    if (mainNavConnections.length > 0 && mainNavGroup.cardIds.length > 0) {
-      // Activate the first nav link
-      handleMainNavClick(mainNavGroup.cardIds[0], 0);
+  // Derive active page fresh from the store on every render — never stale
+  const activePage = (() => {
+    if (activeSecondaryNavCardId) {
+      return groups.find(g => g.prototypeRole === 'page' && g.ownerCardId === activeSecondaryNavCardId) ?? null;
     }
-  }, [mainNavGroup, connections]); // Only run on mount or when these change
+    if (activeMainNavCardId) {
+      return groups.find(g => g.prototypeRole === 'page' && g.ownerCardId === activeMainNavCardId) ?? null;
+    }
+    return null;
+  })();
 
-  /**
-   * Handle click on main nav link
-   * Approach A (index-based): First card → first connection, etc.
-   */
-  const handleMainNavClick = (cardId: string, index: number) => {
-    if (!mainNavGroup) return;
+  // Derive active secondary nav fresh from the store on every render — never stale
+  const activeSecondaryNav = (() => {
+    if (!activeMainNavCardId) return null;
+    const ownedPage = groups.find(g => g.prototypeRole === 'page' && g.ownerCardId === activeMainNavCardId);
+    if (!ownedPage) return null;
+    return groups.find(g =>
+      g.prototypeRole === 'secondary-nav' &&
+      connections.some(c => c.fromGroupId === ownedPage.id && c.toGroupId === g.id)
+    ) ?? null;
+  })();
 
+  // Auto-activate the first nav card when main nav first gets a card
+  useEffect(() => {
+    if (activeMainNavCardId) return;
+    if (!mainNavGroup || mainNavGroup.cardIds.length === 0) return;
+    setActiveMainNavCardId(mainNavGroup.cardIds[0]);
+  }, [mainNavGroup?.cardIds.length, activeMainNavCardId]);
+
+  // If the active nav card is removed, fall back to the first remaining card
+  useEffect(() => {
+    if (!activeMainNavCardId) return;
+    if (!mainNavGroup?.cardIds.includes(activeMainNavCardId)) {
+      setActiveMainNavCardId(mainNavGroup?.cardIds[0] ?? null);
+      setActiveSecondaryNavCardId(null);
+    }
+  }, [groups]);
+
+  const handleMainNavClick = (cardId: string) => {
     setActiveMainNavCardId(cardId);
     setActiveSecondaryNavCardId(null);
-    setActiveSecondaryNav(null);
-
-    // Find the connection at the same index
-    const mainNavConnections = connections.filter(
-      (conn) => conn.fromGroupId === mainNavGroup.id
-    );
-
-    const connection = mainNavConnections[index];
-
-    if (!connection) {
-      // No connection for this index
-      setActivePage(null);
-      return;
-    }
-
-    const targetGroup = groups.find((g) => g.id === connection.toGroupId);
-
-    if (!targetGroup) {
-      setActivePage(null);
-      return;
-    }
-
-    // If target is a page, show it directly
-    if (targetGroup.prototypeRole === 'page') {
-      setActivePage(targetGroup);
-      setActiveSecondaryNav(null);
-      return;
-    }
-
-    // If target is a secondary-nav, show the sidebar and navigate to its first connected page
-    if (targetGroup.prototypeRole === 'secondary-nav') {
-      setActiveSecondaryNav(targetGroup);
-
-      // Find the first connection from this secondary nav to a page
-      const secondaryNavConnections = connections.filter(
-        (conn) => conn.fromGroupId === targetGroup.id
-      );
-
-      if (secondaryNavConnections.length > 0 && targetGroup.cardIds.length > 0) {
-        // Activate the first secondary nav link
-        const firstCardId = targetGroup.cardIds[0];
-        setActiveSecondaryNavCardId(firstCardId);
-
-        const firstTargetGroup = groups.find(
-          (g) => g.id === secondaryNavConnections[0].toGroupId
-        );
-
-        setActivePage(firstTargetGroup || null);
-      } else {
-        // Secondary nav has no connections
-        setActivePage(null);
-      }
-    }
   };
 
-  /**
-   * Handle click on secondary nav link
-   * Approach A (index-based): First card → first connection, etc.
-   */
-  const handleSecondaryNavClick = (cardId: string, index: number) => {
-    if (!activeSecondaryNav) return;
-
+  const handleSecondaryNavClick = (cardId: string) => {
     setActiveSecondaryNavCardId(cardId);
-
-    // Find the connection at the same index
-    const secondaryNavConnections = connections.filter(
-      (conn) => conn.fromGroupId === activeSecondaryNav.id
-    );
-
-    const connection = secondaryNavConnections[index];
-
-    if (!connection) {
-      setActivePage(null);
-      return;
-    }
-
-    const targetGroup = groups.find((g) => g.id === connection.toGroupId);
-    setActivePage(targetGroup || null);
   };
 
-  // Handle edge case: if active page is deleted, fall back
-  useEffect(() => {
-    if (activePage && !groups.find((g) => g.id === activePage.id)) {
-      setActivePage(null);
-      setActiveMainNavCardId(null);
-      setActiveSecondaryNavCardId(null);
-      setActiveSecondaryNav(null);
-    }
-  }, [groups, activePage]);
+  const mainNavCards = mainNavGroup
+    ? mainNavGroup.cardIds
+        .map((id) => cards.find((c) => c.id === id))
+        .filter((c): c is NonNullable<typeof c> => c !== undefined)
+    : [];
 
-  // Determine what to render
   const hasCards = groups.some((g) => g.cardIds.length > 0);
-  const hasConnections = connections.length > 0;
 
   if (!hasCards) {
     return (
@@ -144,14 +81,37 @@ export const WireframePreview = () => {
     );
   }
 
-  if (!hasConnections) {
+  if (mainNavPosition === 'left') {
     return (
-      <div className="wf-shell">
-        <WireframeTopNav
-          activeMainNavCardId={activeMainNavCardId}
-          onMainNavClick={handleMainNavClick}
-        />
-        <WireframeEmptyState type="no-connections" />
+      <div className="wf-shell wf-shell--leftnav">
+        <div className="wf-leftnav">
+          <div className="wf-leftnav-header">
+            <div className="wf-leftnav-title">{meta.title}</div>
+          </div>
+          <div className="wf-leftnav-links">
+            {mainNavCards.map((card) => (
+              <div
+                key={card.id}
+                className={`wf-leftnav-link ${activeMainNavCardId === card.id ? 'wf-leftnav-link--active' : ''}`}
+                onClick={() => handleMainNavClick(card.id)}
+              >
+                {card.label}
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="wf-leftnav-body">
+          <div className="wf-content-row">
+            {activeSecondaryNav && (
+              <WireframeSidebar
+                secondaryNavGroup={activeSecondaryNav}
+                activeSecondaryLinkId={activeSecondaryNavCardId}
+                onSecondaryLinkClick={(cardId) => handleSecondaryNavClick(cardId)}
+              />
+            )}
+            <WireframeContentArea activePage={activePage} />
+          </div>
+        </div>
       </div>
     );
   }
@@ -167,7 +127,7 @@ export const WireframePreview = () => {
           <WireframeSidebar
             secondaryNavGroup={activeSecondaryNav}
             activeSecondaryLinkId={activeSecondaryNavCardId}
-            onSecondaryLinkClick={handleSecondaryNavClick}
+            onSecondaryLinkClick={(cardId) => handleSecondaryNavClick(cardId)}
           />
         )}
         <WireframeContentArea activePage={activePage} />

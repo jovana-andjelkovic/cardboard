@@ -1,11 +1,9 @@
-import { useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useProjectStore } from '../../store/projectStore';
 import { CardItem } from './CardItem';
-import { ConnectionBadge } from '../connections/ConnectionBadge';
 import type { Group, CardDefinition } from '../../store/types';
 
 interface SortableCardProps {
@@ -45,35 +43,13 @@ const SortableCard = ({ card, group }: SortableCardProps) => {
 
 interface GroupZoneProps {
   group: Group;
-  onConnectionClick?: (groupId: string) => void;
 }
 
-export const GroupZone = ({ group, onConnectionClick }: GroupZoneProps) => {
+export const GroupZone = ({ group }: GroupZoneProps) => {
   const cards = useProjectStore((state) => state.cards);
   const groups = useProjectStore((state) => state.groups);
-  const updateGroup = useProjectStore((state) => state.updateGroup);
   const removeGroup = useProjectStore((state) => state.removeGroup);
-  const isConnectionMode = useProjectStore((state) => state.isConnectionMode);
-  const selectedSourceGroupId = useProjectStore((state) => state.selectedSourceGroupId);
-
-  const [isEditing, setIsEditing] = useState(false);
-  const [editLabel, setEditLabel] = useState(group.label);
-
-  // Connection mode states
-  const isSelectedSource = selectedSourceGroupId === group.id;
-  const selectedSourceGroup = groups.find((g) => g.id === selectedSourceGroupId);
-
-  // Determine if this group is a valid source (can initiate connections)
-  const isValidSource =
-    group.prototypeRole === 'main-nav' || group.prototypeRole === 'secondary-nav';
-
-  // Determine if this group is a valid target for the selected source
-  const isValidTarget =
-    selectedSourceGroup &&
-    selectedSourceGroupId !== group.id &&
-    (group.prototypeRole === 'page' || group.prototypeRole === 'secondary-nav');
-
-  const isInvalidTarget = isConnectionMode && selectedSourceGroupId && !isValidTarget && !isSelectedSource;
+  const addSecondaryNavToPage = useProjectStore((state) => state.addSecondaryNavToPage);
 
   const { setNodeRef, isOver } = useDroppable({
     id: group.id,
@@ -87,15 +63,23 @@ export const GroupZone = ({ group, onConnectionClick }: GroupZoneProps) => {
     .map((id) => cards.find((c) => c.id === id))
     .filter((c): c is NonNullable<typeof c> => c !== undefined);
 
-  const handleRename = () => {
-    if (editLabel.trim() && editLabel !== group.label) {
-      updateGroup(group.id, { label: editLabel.trim() });
-    }
-    setIsEditing(false);
-  };
+  // Find the owner card for display
+  const ownerCard = group.ownerCardId
+    ? cards.find(c => c.id === group.ownerCardId)
+    : undefined;
+
+  const isSecondaryNavPage = group.prototypeRole === 'page' &&
+    group.ownerCardId != null &&
+    groups.some(g => g.prototypeRole === 'secondary-nav' && g.cardIds.includes(group.ownerCardId!));
 
   const handleDelete = () => {
-    if (confirm(`Delete "${group.label}"? All cards will return to the deck.`)) {
+    const isOwnedPage = group.prototypeRole === 'page' && group.ownerCardId;
+    const ownerLabel = ownerCard?.label ?? 'this nav item';
+    const message = isOwnedPage
+      ? `This will remove "${ownerLabel}" from the main nav and delete this page and all its content. Continue?`
+      : `Delete "${group.label}"? All cards will return to the deck.`;
+
+    if (confirm(message)) {
       removeGroup(group.id);
     }
   };
@@ -108,110 +92,56 @@ export const GroupZone = ({ group, onConnectionClick }: GroupZoneProps) => {
 
   const roleBadgeStyle = roleBadgeStyles[group.prototypeRole];
 
-  const handleClick = () => {
-    if (isConnectionMode && onConnectionClick) {
-      onConnectionClick(group.id);
-    }
-  };
-
-  // Conditional styling based on connection mode
-  let borderClass = 'border-gray-300';
-  let cursorClass = '';
-  let opacityClass = '';
-
-  if (isConnectionMode) {
-    if (isSelectedSource) {
-      borderClass = 'border-indigo-500 border-2';
-    } else if (isValidTarget) {
-      borderClass = 'border-indigo-300 border-2 border-dashed';
-      cursorClass = 'cursor-pointer';
-    } else if (isInvalidTarget) {
-      opacityClass = 'opacity-50';
-    } else if (isValidSource && !selectedSourceGroupId) {
-      borderClass = 'border-blue-400 border-dashed';
-      cursorClass = 'cursor-pointer';
-    }
-  }
-
   return (
-    <div
-      className={`bg-white border rounded-lg overflow-hidden transition-all ${borderClass} ${cursorClass} ${opacityClass}`}
-      onClick={handleClick}
-    >
+    <div className="bg-white border border-gray-300 rounded-lg overflow-hidden">
       {/* Header */}
-      <div className="bg-gray-50 border-b border-gray-300 px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          {isEditing ? (
-            <input
-              type="text"
-              value={editLabel}
-              onChange={(e) => setEditLabel(e.target.value)}
-              onBlur={handleRename}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleRename();
-                if (e.key === 'Escape') {
-                  setEditLabel(group.label);
-                  setIsEditing(false);
-                }
-              }}
-              className="px-2 py-1 text-sm font-semibold border border-blue-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1"
-              autoFocus
-            />
-          ) : (
-            <h3
-              className="text-sm font-semibold text-gray-800 truncate cursor-pointer hover:text-blue-600"
-              onDoubleClick={() => setIsEditing(true)}
-              title="Double-click to rename"
-            >
+      <div className="bg-gray-50 border-b border-gray-300 px-4 py-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <h3 className="text-sm font-semibold text-gray-800 truncate">
               {group.label}
             </h3>
-          )}
 
-          <span
-            className={`px-2 py-0.5 text-xs font-medium border rounded ${roleBadgeStyle}`}
-          >
-            {group.prototypeRole}
-          </span>
+            <span className={`px-2 py-0.5 text-xs font-medium border rounded flex-shrink-0 ${roleBadgeStyle}`}>
+              {group.prototypeRole}
+            </span>
 
-          <span className="text-xs text-gray-500">
-            {groupCards.length} card{groupCards.length === 1 ? '' : 's'}
-          </span>
+            <span className="text-xs text-gray-500 flex-shrink-0">
+              {groupCards.length} card{groupCards.length === 1 ? '' : 's'}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1 ml-2 flex-shrink-0">
+            {/* "Add secondary nav" button for page groups */}
+            {group.prototypeRole === 'page' && !isSecondaryNavPage && (
+              <button
+                onClick={() => addSecondaryNavToPage(group.id)}
+                className="px-2 py-1 text-xs text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded transition-colors"
+                title="Add secondary nav section"
+              >
+                + Secondary nav
+              </button>
+            )}
+
+            {group.prototypeRole !== 'main-nav' && (
+              <button
+                onClick={handleDelete}
+                className="p-1 text-red-500 hover:text-red-700 text-xs"
+                title="Delete group"
+              >
+                ✕
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          {!isEditing && !isConnectionMode && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsEditing(true);
-              }}
-              className="p-1 text-gray-500 hover:text-gray-700 text-xs"
-              title="Rename group"
-            >
-              ✎
-            </button>
-          )}
-          {group.prototypeRole !== 'main-nav' && !isConnectionMode && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                handleDelete();
-              }}
-              className="p-1 text-red-500 hover:text-red-700 text-xs"
-              title="Delete group"
-            >
-              ✕
-            </button>
-          )}
-        </div>
+        {/* Owner annotation */}
+        {ownerCard && group.prototypeRole !== 'main-nav' && (
+          <div className="mt-1">
+            <span className="text-xs text-gray-400">via {ownerCard.label}</span>
+          </div>
+        )}
       </div>
-
-      {/* Connection Badge (shown in normal mode) */}
-      {!isConnectionMode && (
-        <div className="px-4">
-          <ConnectionBadge groupId={group.id} />
-        </div>
-      )}
 
       {/* Drop zone */}
       <div

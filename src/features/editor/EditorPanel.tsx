@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -9,14 +9,13 @@ import {
   useSensors,
   DragStartEvent,
   DragEndEvent,
-  DragOverEvent,
 } from '@dnd-kit/core';
-import { sortableKeyboardCoordinates, arrayMove } from '@dnd-kit/sortable';
+import { sortableKeyboardCoordinates } from '@dnd-kit/sortable';
 import { useProjectStore } from '../../store/projectStore';
 import { Deck } from './Deck';
 import { GroupsList } from './GroupsList';
 import { CardItem } from './CardItem';
-import { ConnectionPanel } from '../connections/ConnectionPanel';
+import { SecondaryNavPromptModal } from './SecondaryNavPromptModal';
 import type { CardDefinition } from '../../store/types';
 
 export const EditorPanel = () => {
@@ -25,26 +24,13 @@ export const EditorPanel = () => {
   const moveCard = useProjectStore((state) => state.moveCard);
   const returnCardToDeck = useProjectStore((state) => state.returnCardToDeck);
   const reorderCardInGroup = useProjectStore((state) => state.reorderCardInGroup);
-
-  // Connection mode state
-  const isConnectionMode = useProjectStore((state) => state.isConnectionMode);
-  const selectedSourceGroupId = useProjectStore((state) => state.selectedSourceGroupId);
-  const setConnectionMode = useProjectStore((state) => state.setConnectionMode);
-  const setSelectedSource = useProjectStore((state) => state.setSelectedSource);
-  const addConnection = useProjectStore((state) => state.addConnection);
+  const dropCardToMainNav = useProjectStore((state) => state.dropCardToMainNav);
+  const removeCardFromMainNav = useProjectStore((state) => state.removeCardFromMainNav);
+  const dropCardToSecondaryNav = useProjectStore((state) => state.dropCardToSecondaryNav);
+  const removeCardFromSecondaryNav = useProjectStore((state) => state.removeCardFromSecondaryNav);
+  const setPendingSecondaryNavPrompt = useProjectStore((state) => state.setPendingSecondaryNavPrompt);
 
   const [activeCard, setActiveCard] = useState<CardDefinition | null>(null);
-
-  // Clear selection on Escape key
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && isConnectionMode) {
-        setSelectedSource(null);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isConnectionMode, setSelectedSource]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -70,38 +56,77 @@ export const EditorPanel = () => {
 
     setActiveCard(null);
 
-    if (!over) {
-      // Dropped outside any drop zone - do nothing
-      return;
-    }
+    if (!over) return;
 
     const activeCardId = active.id as string;
     const overData = over.data.current;
 
+    // Find where the card is coming from
+    const sourceGroup = groups.find((g) => g.cardIds.includes(activeCardId));
+    const isFromMainNav = sourceGroup?.prototypeRole === 'main-nav';
+    const isFromSecondaryNav = sourceGroup?.prototypeRole === 'secondary-nav';
+
     // Scenario 1: Dropped on the deck
     if (over.id === 'deck') {
-      returnCardToDeck(activeCardId);
+      if (isFromMainNav) {
+        removeCardFromMainNav(activeCardId);
+      } else if (isFromSecondaryNav) {
+        removeCardFromSecondaryNav(activeCardId);
+      } else {
+        returnCardToDeck(activeCardId);
+      }
       return;
     }
 
-    // Find which group (if any) the active card is currently in
-    const sourceGroup = groups.find((g) => g.cardIds.includes(activeCardId));
+    // Helper: pages owned by a secondary-nav group must not gain another secondary nav
+    const isSecondaryNavOwnedPage = (target: { prototypeRole: string; ownerCardId?: string | null }) =>
+      target.prototypeRole === 'page' &&
+      target.ownerCardId != null &&
+      groups.some(g => g.prototypeRole === 'secondary-nav' && g.cardIds.includes(target.ownerCardId!));
 
     // Scenario 2: Dropped on a group
     if (overData?.type === 'group') {
       const targetGroup = overData.group;
 
-      // If it's the same group and there's only one card, do nothing
+      // Reordering within the same group — no-op if it's the only card
       if (sourceGroup?.id === targetGroup.id) {
         return;
       }
 
-      // Move to the end of the target group
+      // Dropping into main-nav
+      if (targetGroup.prototypeRole === 'main-nav') {
+        if (isFromMainNav) {
+          // Already in main-nav — treat as reorder to end (handled by card drop scenario)
+          return;
+        }
+        dropCardToMainNav(activeCardId);
+        return;
+      }
+
+      // Dropping into a page group from main-nav → prompt for secondary nav
+      if (targetGroup.prototypeRole === 'page' && isFromMainNav && !isSecondaryNavOwnedPage(targetGroup)) {
+        moveCard(activeCardId, targetGroup.id, targetGroup.cardIds.length);
+        const card = cards.find(c => c.id === activeCardId);
+        setPendingSecondaryNavPrompt({
+          cardId: activeCardId,
+          targetPageGroupId: targetGroup.id,
+          cardLabel: card?.label ?? activeCardId,
+        });
+        return;
+      }
+
+      // Dropping into a secondary-nav group from outside → auto-create page
+      if (targetGroup.prototypeRole === 'secondary-nav' && sourceGroup?.id !== targetGroup.id) {
+        dropCardToSecondaryNav(activeCardId, targetGroup.id);
+        return;
+      }
+
+      // Dropping into any other group — normal move
       moveCard(activeCardId, targetGroup.id, targetGroup.cardIds.length);
       return;
     }
 
-    // Scenario 3: Dropped on a card (for reordering within a group)
+    // Scenario 3: Dropped on a card (reorder or cross-group move)
     if (overData?.type === 'card') {
       const targetGroupId = overData.groupId;
       const targetGroup = groups.find((g) => g.id === targetGroupId);
@@ -109,7 +134,7 @@ export const EditorPanel = () => {
       if (!targetGroup) return;
 
       const overCardId = over.id as string;
-      const oldIndex = targetGroup.cardIds.indexOf(activeCardId);
+      const oldIndex = sourceGroup?.cardIds.indexOf(activeCardId) ?? -1;
       const newIndex = targetGroup.cardIds.indexOf(overCardId);
 
       // Reordering within the same group
@@ -117,93 +142,40 @@ export const EditorPanel = () => {
         if (oldIndex !== newIndex) {
           reorderCardInGroup(targetGroupId, oldIndex, newIndex);
         }
-      } else {
-        // Moving from deck or different group to this position
-        moveCard(activeCardId, targetGroupId, newIndex);
+        return;
       }
-      return;
+
+      // Cross-group moves
+      if (targetGroup.prototypeRole === 'main-nav') {
+        if (!isFromMainNav) {
+          dropCardToMainNav(activeCardId);
+        }
+        // If already in main-nav, it's a reorder that was handled above
+        return;
+      }
+
+      // Dropping into a page from main-nav → prompt
+      if (targetGroup.prototypeRole === 'page' && isFromMainNav && !isSecondaryNavOwnedPage(targetGroup)) {
+        moveCard(activeCardId, targetGroupId, newIndex >= 0 ? newIndex : targetGroup.cardIds.length);
+        const card = cards.find(c => c.id === activeCardId);
+        setPendingSecondaryNavPrompt({
+          cardId: activeCardId,
+          targetPageGroupId: targetGroupId,
+          cardLabel: card?.label ?? activeCardId,
+        });
+        return;
+      }
+
+      // Dropping onto a card in a secondary-nav group from outside → auto-create page
+      if (targetGroup.prototypeRole === 'secondary-nav' && sourceGroup?.id !== targetGroupId) {
+        dropCardToSecondaryNav(activeCardId, targetGroupId);
+        return;
+      }
+
+      // Normal cross-group move
+      moveCard(activeCardId, targetGroupId, newIndex >= 0 ? newIndex : targetGroup.cardIds.length);
     }
   };
-
-  // Handle connection click
-  const handleConnectionClick = (groupId: string) => {
-    if (!isConnectionMode) return;
-
-    const clickedGroup = groups.find((g) => g.id === groupId);
-    if (!clickedGroup) return;
-
-    // If no source selected, select this group as source (if valid)
-    if (!selectedSourceGroupId) {
-      const isValidSource =
-        clickedGroup.prototypeRole === 'main-nav' ||
-        clickedGroup.prototypeRole === 'secondary-nav';
-      if (isValidSource) {
-        setSelectedSource(groupId);
-      }
-      return;
-    }
-
-    // If clicking the selected source again, deselect it
-    if (selectedSourceGroupId === groupId) {
-      setSelectedSource(null);
-      return;
-    }
-
-    // Otherwise, try to create a connection
-    const isValidTarget =
-      clickedGroup.prototypeRole === 'page' ||
-      clickedGroup.prototypeRole === 'secondary-nav';
-
-    if (isValidTarget) {
-      addConnection(selectedSourceGroupId, groupId);
-      setSelectedSource(null); // Clear selection after creating connection
-    }
-  };
-
-  const editorContent = (
-    <div className="h-full overflow-auto">
-      <div className="p-6 space-y-6">
-        {/* Connection mode toggle and panel */}
-        <div className="flex items-start gap-4">
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-4">
-              <button
-                onClick={() => setConnectionMode(!isConnectionMode)}
-                className={`px-4 py-2 text-sm font-medium rounded transition-colors ${
-                  isConnectionMode
-                    ? 'bg-indigo-500 text-white hover:bg-indigo-600'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                }`}
-              >
-                {isConnectionMode ? '✓ Connection Mode' : '🔗 Edit Connections'}
-              </button>
-              {isConnectionMode && selectedSourceGroupId && (
-                <span className="text-sm text-gray-600">
-                  Click a target page or section to connect
-                </span>
-              )}
-            </div>
-          </div>
-          <div className="w-80">
-            <ConnectionPanel />
-          </div>
-        </div>
-
-        {/* Deck - sticky at top */}
-        <div className="sticky top-0 z-10 bg-white pb-4">
-          <Deck />
-        </div>
-
-        {/* Groups */}
-        <GroupsList onConnectionClick={handleConnectionClick} />
-      </div>
-    </div>
-  );
-
-  // Wrap in DndContext only if not in connection mode
-  if (isConnectionMode) {
-    return editorContent;
-  }
 
   return (
     <DndContext
@@ -212,7 +184,17 @@ export const EditorPanel = () => {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      {editorContent}
+      <div className="h-full overflow-auto">
+        <div className="p-6 space-y-6">
+          {/* Deck - sticky at top */}
+          <div className="sticky top-0 z-10 bg-white pb-4">
+            <Deck />
+          </div>
+
+          {/* Groups */}
+          <GroupsList />
+        </div>
+      </div>
 
       {/* Drag overlay */}
       <DragOverlay>
@@ -222,6 +204,9 @@ export const EditorPanel = () => {
           </div>
         ) : null}
       </DragOverlay>
+
+      {/* Secondary nav prompt modal */}
+      <SecondaryNavPromptModal />
     </DndContext>
   );
 };
