@@ -86,7 +86,7 @@ export const Deck = () => {
     <div
       ref={setNodeRef}
       className={`border-2 border-dashed rounded-lg p-4 ${
-        isOver ? 'border-emerald-400 bg-emerald-50' : 'border-gray-300 bg-gray-50'
+        isOver ? 'border-[#047C66] bg-[#047C66]/10' : 'border-gray-300 bg-gray-50'
       }`}
     >
       <input

@@ -12,3 +12,7 @@ npm run dev
 ```
 
 Open [http://localhost:5173](http://localhost:5173) in your browser.
+
+## License
+
+[AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html) — free to use and modify, but any distributed or hosted version must also be open source under the same license.

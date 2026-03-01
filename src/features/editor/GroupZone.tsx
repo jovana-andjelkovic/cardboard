@@ -141,7 +141,7 @@ export const GroupZone = ({ group }: GroupZoneProps) => {
       <div
         ref={setNodeRef}
         className={`p-4 min-h-[120px] ${
-          isOver ? 'bg-emerald-50 border-2 border-emerald-400 border-dashed' : ''
+          isOver ? 'bg-[#047C66]/10 border-2 border-[#047C66] border-dashed' : ''
         }`}
       >
         {groupCards.length > 0 ? (
