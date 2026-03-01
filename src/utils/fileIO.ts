@@ -20,7 +20,8 @@ export const exportCardsToMarkdown = (state: ProjectState): void => {
 
   const link = document.createElement('a');
   link.href = url;
-  link.download = `${state.meta.title || 'cards'}-cards-${Date.now()}.md`;
+  const slug = (state.meta.title || 'project').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  link.download = `${slug}-cards.md`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -38,7 +39,8 @@ export const exportToFile = (state: ProjectState): void => {
 
   const link = document.createElement('a');
   link.href = url;
-  link.download = `${state.meta.title || 'project'}-${Date.now()}.json`;
+  const slug = (state.meta.title || 'project').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  link.download = `${slug}.json`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);

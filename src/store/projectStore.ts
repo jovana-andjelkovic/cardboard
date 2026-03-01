@@ -691,27 +691,45 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   promoteToSecondaryNav: (cardId: string, pageGroupId: string) => {
-    // Card is already in the page. Create a secondary-nav group linked to the page.
+    // Card is already in the page. Move it into the page's secondary-nav group,
+    // creating one if it doesn't exist yet.
     const state = get();
-    const card = state.cards.find(c => c.id === cardId);
-    if (!card) return;
 
-    const newSecNavId = nanoid();
-    const newSecNav: Group = {
+    // Find existing secondary-nav connected to this page
+    const existingSecNavId = state.connections
+      .find(c => c.fromGroupId === pageGroupId &&
+        state.groups.find(g => g.id === c.toGroupId)?.prototypeRole === 'secondary-nav')
+      ?.toGroupId ?? null;
+
+    const newSecNavId = existingSecNavId ?? nanoid();
+    const newGroups: Group[] = existingSecNavId ? [] : [{
       id: newSecNavId,
-      label: `${card.label} Nav`,
+      label: 'Secondary Navigation',
       cardIds: [],
       prototypeRole: 'secondary-nav',
       order: state.groups.length,
-      ownerCardId: cardId,
-    };
+    }];
+    const newConnections = existingSecNavId ? [] : [
+      { fromGroupId: pageGroupId, toGroupId: newSecNavId },
+    ];
 
     set((state) => ({
-      groups: [...state.groups, newSecNav],
-      connections: [
-        ...state.connections,
-        { fromGroupId: pageGroupId, toGroupId: newSecNavId },
+      groups: [
+        ...state.groups.map(g => {
+          if (g.id === pageGroupId) {
+            // Remove card from the page
+            return { ...g, cardIds: g.cardIds.filter(id => id !== cardId) };
+          }
+          if (g.id === newSecNavId) {
+            // Add card to existing secondary-nav
+            return { ...g, cardIds: [...g.cardIds, cardId] };
+          }
+          return g;
+        }),
+        // Append new secondary-nav if created
+        ...newGroups.map(g => g.id === newSecNavId ? { ...g, cardIds: [cardId] } : g),
       ],
+      connections: [...state.connections, ...newConnections],
       meta: {
         ...state.meta,
         updatedAt: new Date().toISOString(),
@@ -811,6 +829,72 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
   },
 
   loadSnapshot: (snapshot: ProjectState) => {
+    // Reconcile: ensure every main-nav card has a corresponding page group
+    const mainNavGroup = snapshot.groups.find(g => g.prototypeRole === 'main-nav');
+    if (mainNavGroup) {
+      const extraGroups: Group[] = [];
+      const extraConnections: Connection[] = [];
+      for (const cardId of mainNavGroup.cardIds) {
+        const hasPage = snapshot.groups.some(g => g.prototypeRole === 'page' && g.ownerCardId === cardId);
+        if (!hasPage) {
+          const card = snapshot.cards.find(c => c.id === cardId);
+          const newPageId = nanoid();
+          extraGroups.push({
+            id: newPageId,
+            label: `${card?.label ?? 'Untitled'} Page`,
+            cardIds: [],
+            prototypeRole: 'page',
+            order: snapshot.groups.length + extraGroups.length,
+            ownerCardId: cardId,
+          });
+          extraConnections.push({ fromGroupId: mainNavGroup.id, toGroupId: newPageId });
+        }
+      }
+      if (extraGroups.length > 0) {
+        snapshot = {
+          ...snapshot,
+          groups: [...snapshot.groups, ...extraGroups],
+          connections: [...snapshot.connections, ...extraConnections],
+        };
+      }
+    }
+
+    // Reconcile: move cards from orphaned groups back to unsorted
+    {
+      const mn = snapshot.groups.find(g => g.prototypeRole === 'main-nav');
+      const ownedPageIds = new Set(
+        (mn?.cardIds ?? [])
+          .map(cardId => snapshot.groups.find(g => g.prototypeRole === 'page' && g.ownerCardId === cardId)?.id)
+          .filter((id): id is string => id !== undefined)
+      );
+      const connectedSecNavIds = new Set(
+        snapshot.connections
+          .filter(c => ownedPageIds.has(c.fromGroupId))
+          .map(c => c.toGroupId)
+      );
+      const orphanedGroups = snapshot.groups.filter(g =>
+        g.prototypeRole !== 'main-nav' &&
+        !ownedPageIds.has(g.id) &&
+        !connectedSecNavIds.has(g.id) &&
+        !(g.prototypeRole === 'page' && g.ownerCardId &&
+          snapshot.groups.some(secNav =>
+            secNav.prototypeRole === 'secondary-nav' && secNav.cardIds.includes(g.ownerCardId!)
+          ))
+      );
+      if (orphanedGroups.length > 0) {
+        const rescuedCardIds = orphanedGroups.flatMap(g => g.cardIds);
+        const orphanedGroupIds = new Set(orphanedGroups.map(g => g.id));
+        snapshot = {
+          ...snapshot,
+          groups: snapshot.groups.filter(g => !orphanedGroupIds.has(g.id)),
+          connections: snapshot.connections.filter(
+            c => !orphanedGroupIds.has(c.fromGroupId) && !orphanedGroupIds.has(c.toGroupId)
+          ),
+          unsortedCardIds: [...snapshot.unsortedCardIds, ...rescuedCardIds],
+        };
+      }
+    }
+
     set({
       ...snapshot,
       pendingSecondaryNavPrompt: null,

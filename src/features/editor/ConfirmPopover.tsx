@@ -38,13 +38,13 @@ export const ConfirmPopover = ({
         <div className="flex gap-2 justify-end">
           <button
             onClick={onCancel}
-            className="px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors"
+            className="btn-secondary px-2.5 py-1 text-xs font-medium rounded"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
-            className="px-2.5 py-1 text-xs font-medium bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+            className="btn-secondary px-2.5 py-1 text-xs font-medium rounded text-red-600"
           >
             {confirmLabel}
           </button>

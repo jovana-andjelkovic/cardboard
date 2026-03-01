@@ -19,11 +19,9 @@ export const GroupsList = () => {
   }
 
   return (
-    <div>
-      {/* Paired layout: nav on left, pages on right */}
-      <div className="flex items-start">
-        {/* Left column: main-nav group */}
-        <div className="w-56 flex-shrink-0">
+    <div className="flex h-full">
+      {/* Left column: main-nav group — fixed, doesn't scroll with pages */}
+      <div className="w-56 flex-shrink-0 overflow-auto px-6 py-4">
           <div className="flex items-center justify-between mb-2 px-1">
             <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
               Main Nav
@@ -61,8 +59,8 @@ export const GroupsList = () => {
           <div className="w-px flex-1 bg-gray-200" />
         </div>
 
-        {/* Right column: pages paired with their nav cards */}
-        <div className="flex-1 min-w-0">
+        {/* Right column: pages paired with their nav cards — scrolls independently */}
+        <div className="flex-1 min-w-0 overflow-auto px-6 py-4 pb-20">
           <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 px-1">
             Pages
           </div>
@@ -134,48 +132,7 @@ export const GroupsList = () => {
             </div>
           )}
 
-          {/* Orphaned pages and secondary-nav groups (not owned by any main-nav card) */}
-          {(() => {
-            const ownedPageIds = new Set(
-              mainNavGroup.cardIds
-                .map(cardId => groups.find(g => g.prototypeRole === 'page' && g.ownerCardId === cardId)?.id)
-                .filter((id): id is string => id !== undefined)
-            );
-
-            const connectedSecNavIds = new Set(
-              connections
-                .filter(c => ownedPageIds.has(c.fromGroupId))
-                .map(c => c.toGroupId)
-            );
-
-            const orphanedGroups = groups.filter(g =>
-              g.prototypeRole !== 'main-nav' &&
-              !ownedPageIds.has(g.id) &&
-              !connectedSecNavIds.has(g.id) &&
-              // Exclude pages owned by cards in any secondary-nav group
-              !(g.prototypeRole === 'page' && g.ownerCardId &&
-                groups.some(secNav =>
-                  secNav.prototypeRole === 'secondary-nav' && secNav.cardIds.includes(g.ownerCardId!)
-                ))
-            );
-
-            if (orphanedGroups.length === 0) return null;
-
-            return (
-              <div className="mt-6">
-                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
-                  Other groups
-                </div>
-                <div className="space-y-4">
-                  {orphanedGroups.map(group => (
-                    <GroupZone key={group.id} group={group} />
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
         </div>
-      </div>
     </div>
   );
 };

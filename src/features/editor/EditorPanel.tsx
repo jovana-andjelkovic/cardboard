@@ -184,14 +184,14 @@ export const EditorPanel = () => {
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="h-full overflow-auto">
-        <div className="p-6 space-y-6">
-          {/* Deck - sticky at top */}
-          <div className="sticky top-0 z-10 bg-white pb-4">
-            <Deck />
-          </div>
+      <div className="h-full flex flex-col overflow-hidden">
+        {/* Deck - fixed header */}
+        <div className="flex-shrink-0 bg-gray-50 px-6 py-3 border-b border-gray-200 z-10">
+          <Deck />
+        </div>
 
-          {/* Groups */}
+        {/* Groups - independently scrolling columns */}
+        <div className="flex-1 overflow-hidden">
           <GroupsList />
         </div>
       </div>

@@ -89,8 +89,8 @@ export const GroupZone = ({ group }: GroupZoneProps) => {
   };
 
   const roleBadgeStyles = {
-    'main-nav': 'bg-blue-100 text-blue-700 border-blue-300',
-    'secondary-nav': 'bg-green-100 text-green-700 border-green-300',
+    'main-nav': 'bg-emerald-100 text-emerald-700 border-emerald-300',
+    'secondary-nav': 'bg-violet-100 text-violet-700 border-violet-300',
     'page': 'bg-orange-100 text-orange-700 border-orange-300',
   };
 
@@ -100,60 +100,48 @@ export const GroupZone = ({ group }: GroupZoneProps) => {
     <>
     <div className="bg-white border border-gray-300 rounded-lg overflow-hidden">
       {/* Header */}
-      <div className="bg-gray-50 border-b border-gray-300 px-4 py-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <h3 className="text-sm font-semibold text-gray-800 truncate">
-              {group.label}
-            </h3>
+      {group.prototypeRole !== 'main-nav' && (
+        <div className="bg-gray-50 border-b border-gray-300 px-4 py-1.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <h3 className="text-[12px] font-semibold text-gray-800 truncate">
+                {group.label}
+              </h3>
 
-            <span className={`px-2 py-0.5 text-xs font-medium border rounded flex-shrink-0 ${roleBadgeStyle}`}>
-              {group.prototypeRole}
-            </span>
+              <span className={`px-1.5 py-px text-[10px] font-medium border rounded flex-shrink-0 ${roleBadgeStyle}`}>
+                {group.prototypeRole}
+              </span>
+            </div>
 
-            <span className="text-xs text-gray-500 flex-shrink-0">
-              {groupCards.length} card{groupCards.length === 1 ? '' : 's'}
-            </span>
-          </div>
+            <div className="flex items-center gap-1 ml-2 flex-shrink-0 -mr-3">
+              {group.prototypeRole === 'page' && !isSecondaryNavPage && (
+                <button
+                  onClick={() => addSecondaryNavToPage(group.id)}
+                  className="px-2 py-1 text-xs text-emerald-700 hover:bg-[#6FAA9F]/20 rounded transition-colors"
+                  title="Add secondary nav section"
+                >
+                  + Secondary nav
+                </button>
+              )}
 
-          <div className="flex items-center gap-1 ml-2 flex-shrink-0">
-            {/* "Add secondary nav" button for page groups */}
-            {group.prototypeRole === 'page' && !isSecondaryNavPage && (
-              <button
-                onClick={() => addSecondaryNavToPage(group.id)}
-                className="px-2 py-1 text-xs text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded transition-colors"
-                title="Add secondary nav section"
-              >
-                + Secondary nav
-              </button>
-            )}
-
-            {group.prototypeRole !== 'main-nav' && (
               <button
                 ref={deleteButtonRef}
                 onClick={() => setConfirmingDelete(true)}
-                className="p-1 text-red-500 hover:text-red-700 text-xs"
+                className="px-2 py-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-200/60 rounded transition-colors"
                 title="Delete group"
               >
                 ✕
               </button>
-            )}
+            </div>
           </div>
         </div>
-
-        {/* Owner annotation */}
-        {ownerCard && group.prototypeRole !== 'main-nav' && (
-          <div className="mt-1">
-            <span className="text-xs text-gray-400">via {ownerCard.label}</span>
-          </div>
-        )}
-      </div>
+      )}
 
       {/* Drop zone */}
       <div
         ref={setNodeRef}
         className={`p-4 min-h-[120px] ${
-          isOver ? 'bg-blue-50 border-2 border-blue-400 border-dashed' : ''
+          isOver ? 'bg-emerald-50 border-2 border-emerald-400 border-dashed' : ''
         }`}
       >
         {groupCards.length > 0 ? (

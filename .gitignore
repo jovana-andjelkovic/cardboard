@@ -1,5 +1,6 @@
 .DS_Store
 agent instructions/
+agent learnings/
 
 # Dependencies
 node_modules

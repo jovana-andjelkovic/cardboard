@@ -70,44 +70,64 @@ function App() {
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
-      {/* Top bar */}
-      <div className="bg-white border-b border-gray-200 px-4 py-2 grid grid-cols-3 items-center">
-        {/* Left: view toggle */}
-        <div className="flex border border-gray-300 rounded overflow-hidden w-fit">
+      {/* Panel view */}
+      <div className="flex-1 overflow-hidden">
+        {activeView === 'split' ? (
+          <div className="h-full flex">
+            {/* Left: Editor */}
+            <div className="w-1/2 border-r border-gray-200 bg-gray-50 overflow-hidden">
+              <EditorPanel />
+            </div>
+            {/* Right: Wireframe */}
+            <div className="w-1/2 bg-gray-100 overflow-hidden">
+              <WireframePreview />
+            </div>
+          </div>
+        ) : activeView === 'editor' ? (
+          <div className="h-full bg-gray-50">
+            <EditorPanel />
+          </div>
+        ) : (
+          <div className="h-full bg-gray-100">
+            <WireframePreview />
+          </div>
+        )}
+      </div>
+
+      {/* Floating bottom toolbar */}
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-white/10 backdrop-blur-xl backdrop-saturate-150 border border-white/50 rounded-lg shadow-xl px-4 py-2 flex items-center gap-6 max-w-[calc(100vw-96px)]">
+        {/* View toggle */}
+        <div className="btn-group flex gap-px flex-shrink-0">
           <button
             onClick={() => setActiveView('split')}
-            className={`px-3 py-1 text-sm font-medium transition-colors ${
-              activeView === 'split'
-                ? 'bg-blue-500 text-white'
-                : 'bg-white text-gray-700 hover:bg-gray-50'
+            className={`px-3 py-1 text-sm font-medium ${
+              activeView === 'split' ? 'btn-cta' : 'btn-secondary'
             }`}
           >
             Split
           </button>
           <button
             onClick={() => setActiveView('editor')}
-            className={`px-3 py-1 text-sm font-medium transition-colors ${
-              activeView === 'editor'
-                ? 'bg-blue-500 text-white'
-                : 'bg-white text-gray-700 hover:bg-gray-50'
+            className={`px-3 py-1 text-sm font-medium ${
+              activeView === 'editor' ? 'btn-cta' : 'btn-secondary'
             }`}
           >
             Editor
           </button>
           <button
             onClick={() => setActiveView('preview')}
-            className={`px-3 py-1 text-sm font-medium transition-colors ${
-              activeView === 'preview'
-                ? 'bg-blue-500 text-white'
-                : 'bg-white text-gray-700 hover:bg-gray-50'
+            className={`px-3 py-1 text-sm font-medium ${
+              activeView === 'preview' ? 'btn-cta' : 'btn-secondary'
             }`}
           >
             Preview
           </button>
         </div>
 
-        {/* Centre: title */}
-        <div className="flex justify-center">
+        <div className="w-px h-5 bg-gray-200 flex-shrink-0" />
+
+        {/* Title */}
+        <div className="flex justify-center min-w-0">
           {isEditingTitle ? (
             <input
               autoFocus
@@ -119,19 +139,19 @@ function App() {
                 if (e.key === 'Enter') handleTitleCommit();
                 if (e.key === 'Escape') setIsEditingTitle(false);
               }}
-              className="text-sm font-semibold text-gray-800 border-b-2 border-blue-500 bg-transparent focus:outline-none w-48 text-center"
+              className="text-sm font-semibold text-gray-800 border-b-2 border-emerald-600 bg-transparent focus:outline-none max-w-full text-center"
             />
           ) : (
             <div
-              className="group flex items-center gap-1.5 cursor-pointer"
+              className="group relative flex items-center cursor-pointer min-w-0"
               onClick={handleTitleClick}
               title="Click to rename"
             >
-              <h1 className="text-sm font-semibold text-gray-800 group-hover:text-blue-600">
+              <h1 className="text-sm font-semibold text-gray-800 group-hover:text-emerald-700 truncate">
                 {meta.title}
               </h1>
               <svg
-                className="w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                className="absolute left-full ml-1 w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
                 viewBox="0 0 16 16"
                 fill="currentColor"
               >
@@ -141,45 +161,23 @@ function App() {
           )}
         </div>
 
-        {/* Right: action buttons */}
-        <div className="flex gap-2 justify-end">
+        <div className="w-px h-5 bg-gray-200 flex-shrink-0" />
+
+        {/* Action buttons */}
+        <div className="flex gap-2 flex-shrink-0">
           <button
             onClick={handleImport}
-            className="px-3 py-1 text-sm font-semibold bg-white text-gray-500 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+            className="btn-secondary px-3 py-1 text-sm font-semibold rounded"
           >
             Load project
           </button>
           <button
             onClick={handleExport}
-            className="px-3 py-1 text-sm font-semibold bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+            className="btn-cta px-3 py-1 text-sm font-semibold rounded"
           >
             Save project
           </button>
         </div>
-      </div>
-
-      {/* Panel view */}
-      <div className="flex-1 overflow-hidden">
-        {activeView === 'split' ? (
-          <div className="h-full flex">
-            {/* Left: Editor */}
-            <div className="w-1/2 border-r border-gray-200 bg-white overflow-hidden">
-              <EditorPanel />
-            </div>
-            {/* Right: Wireframe */}
-            <div className="w-1/2 bg-gray-100 overflow-hidden">
-              <WireframePreview />
-            </div>
-          </div>
-        ) : activeView === 'editor' ? (
-          <div className="h-full bg-white">
-            <EditorPanel />
-          </div>
-        ) : (
-          <div className="h-full bg-gray-100">
-            <WireframePreview />
-          </div>
-        )}
       </div>
     </div>
   );

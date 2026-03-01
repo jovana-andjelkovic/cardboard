@@ -13,7 +13,9 @@ export const WireframePreview = () => {
   const connections = useProjectStore((state) => state.connections);
   const mainNavPosition = useProjectStore((state) => state.mainNavPosition);
 
-  const [activeMainNavCardId, setActiveMainNavCardId] = useState<string | null>(null);
+  const [activeMainNavCardId, setActiveMainNavCardId] = useState<string | null>(
+    () => groups.find(g => g.prototypeRole === 'main-nav')?.cardIds[0] ?? null
+  );
   const [activeSecondaryNavCardId, setActiveSecondaryNavCardId] = useState<string | null>(null);
 
   const mainNavGroup = groups.find((g) => g.prototypeRole === 'main-nav');
@@ -23,8 +25,11 @@ export const WireframePreview = () => {
     if (activeSecondaryNavCardId) {
       return groups.find(g => g.prototypeRole === 'page' && g.ownerCardId === activeSecondaryNavCardId) ?? null;
     }
-    if (activeMainNavCardId) {
-      return groups.find(g => g.prototypeRole === 'page' && g.ownerCardId === activeMainNavCardId) ?? null;
+    // Try the active card first, then fall back through main-nav cards in order
+    const candidateIds = [activeMainNavCardId, ...(mainNavGroup?.cardIds ?? [])].filter((id): id is string => id !== null);
+    for (const cardId of candidateIds) {
+      const page = groups.find(g => g.prototypeRole === 'page' && g.ownerCardId === cardId);
+      if (page) return page;
     }
     return null;
   })();

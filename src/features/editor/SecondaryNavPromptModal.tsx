@@ -1,9 +1,53 @@
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useProjectStore } from '../../store/projectStore';
+
+const GAP = 8;
+const POPOVER_WIDTH = 256;
 
 export const SecondaryNavPromptModal = () => {
   const prompt = useProjectStore((state) => state.pendingSecondaryNavPrompt);
   const setPendingSecondaryNavPrompt = useProjectStore((state) => state.setPendingSecondaryNavPrompt);
   const promoteToSecondaryNav = useProjectStore((state) => state.promoteToSecondaryNav);
+  const ref = useRef<HTMLDivElement>(null);
+  const [style, setStyle] = useState<React.CSSProperties>({ visibility: 'hidden' });
+
+  useLayoutEffect(() => {
+    if (!prompt) return;
+    const cardEl = document.querySelector(`[data-card-id="${prompt.cardId}"]`);
+    if (!cardEl) return;
+
+    const rect = cardEl.getBoundingClientRect();
+
+    // Prefer right of card; fall back to left if not enough room
+    let left = rect.right + GAP;
+    if (left + POPOVER_WIDTH > window.innerWidth - GAP) {
+      left = rect.left - POPOVER_WIDTH - GAP;
+    }
+
+    // Vertically align with card top, clamp to viewport
+    let top = rect.top;
+    const estimatedHeight = 90;
+    if (top + estimatedHeight > window.innerHeight - GAP) {
+      top = window.innerHeight - estimatedHeight - GAP;
+    }
+
+    setStyle({ position: 'fixed', top, left, width: POPOVER_WIDTH, visibility: 'visible' });
+  }, [prompt]);
+
+  useEffect(() => {
+    if (!prompt) return;
+    const timer = setTimeout(() => {
+      const handleClickOutside = (e: MouseEvent) => {
+        if (ref.current && !ref.current.contains(e.target as Node)) {
+          setPendingSecondaryNavPrompt(null);
+        }
+      };
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [prompt, setPendingSecondaryNavPrompt]);
 
   if (!prompt) return null;
 
@@ -12,44 +56,24 @@ export const SecondaryNavPromptModal = () => {
     setPendingSecondaryNavPrompt(null);
   };
 
-  const handleContentBlock = () => {
-    // Card is already placed in the page — just dismiss
-    setPendingSecondaryNavPrompt(null);
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/30"
-        onClick={handleContentBlock}
-      />
-
-      {/* Modal */}
-      <div className="relative bg-white border border-gray-200 rounded-xl shadow-lg p-6 max-w-sm w-full mx-4">
-        <h3 className="text-sm font-semibold text-gray-900 mb-2">
-          Create secondary navigation?
-        </h3>
-        <p className="text-sm text-gray-600 mb-5">
-          <span className="font-medium">"{prompt.cardLabel}"</span> is a main nav item. Should it
-          become a secondary navigation section on this page, or stay as a regular content block?
-        </p>
-
-        <div className="flex gap-2 justify-end">
-          <button
-            onClick={handleContentBlock}
-            className="px-4 py-2 text-sm font-medium bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-          >
-            Content block
-          </button>
-          <button
-            onClick={handleSecondaryNav}
-            className="px-4 py-2 text-sm font-medium bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-colors"
-          >
-            Secondary nav
-          </button>
-        </div>
+  return createPortal(
+    <div
+      ref={ref}
+      style={style}
+      className="z-50 bg-white border border-gray-200 rounded-xl shadow-lg p-4"
+    >
+      <p className="text-sm text-gray-700 mb-3">
+        Should <span className="font-medium">"{prompt.cardLabel}"</span> be secondary nav instead?
+      </p>
+      <div className="flex justify-end">
+        <button
+          onClick={handleSecondaryNav}
+          className="btn-cta px-3 py-1.5 text-xs font-medium rounded"
+        >
+          Move to secondary nav
+        </button>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

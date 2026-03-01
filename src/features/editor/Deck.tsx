@@ -12,6 +12,8 @@ export const Deck = () => {
   const addCard = useProjectStore((state) => state.addCard);
   const bulkAddCards = useProjectStore((state) => state.bulkAddCards);
   const replaceAllCards = useProjectStore((state) => state.replaceAllCards);
+  const removeCard = useProjectStore((state) => state.removeCard);
+  const updateCard = useProjectStore((state) => state.updateCard);
   const getSnapshot = useProjectStore((state) => state.getSnapshot);
   const resetProject = useProjectStore((state) => state.resetProject);
 
@@ -20,6 +22,7 @@ export const Deck = () => {
   const [importFeedback, setImportFeedback] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
   const [confirmingReset, setConfirmingReset] = useState(false);
+  const [editingCardId, setEditingCardId] = useState<string | null>(null);
   const [newLabel, setNewLabel] = useState('');
   const [newDescription, setNewDescription] = useState('');
 
@@ -83,7 +86,7 @@ export const Deck = () => {
     <div
       ref={setNodeRef}
       className={`border-2 border-dashed rounded-lg p-4 ${
-        isOver ? 'border-blue-400 bg-blue-50' : 'border-gray-300 bg-gray-50'
+        isOver ? 'border-emerald-400 bg-emerald-50' : 'border-gray-300 bg-gray-50'
       }`}
     >
       <input
@@ -93,12 +96,12 @@ export const Deck = () => {
         className="hidden"
         onChange={handleMarkdownImport}
       />
-      <div className="flex items-center justify-between mb-3">
+      <div className={`flex items-center justify-between ${unsortedCards.length === 0 ? '' : 'mb-3'}`}>
         <h3 className="text-sm font-semibold text-gray-700">
           {unsortedCards.length === 0 ? (
-            'All cards sorted ✓'
+            'All cards are sorted'
           ) : (
-            `${unsortedCards.length} card${unsortedCards.length === 1 ? '' : 's'} unsorted`
+            `${unsortedCards.length} unsorted card${unsortedCards.length === 1 ? '' : 's'}`
           )}
         </h3>
         {!isAdding && (
@@ -110,7 +113,7 @@ export const Deck = () => {
               <button
                 ref={resetButtonRef}
                 onClick={() => setConfirmingReset(true)}
-                className="px-3 py-1 text-xs font-medium bg-white text-red-600 border border-red-300 rounded hover:bg-red-50 transition-colors"
+                className="btn-secondary px-3 py-1 text-xs font-medium rounded text-red-600"
               >
                 Reset cards
               </button>
@@ -127,7 +130,7 @@ export const Deck = () => {
             <div className="relative group">
               <button
                 onClick={() => exportCardsToMarkdown(getSnapshot())}
-                className="px-3 py-1 text-xs font-medium bg-gray-100 text-gray-700 border border-gray-300 rounded hover:bg-gray-200 transition-colors"
+                className="btn-secondary px-3 py-1 text-xs font-medium rounded"
               >
                 Export cards
               </button>
@@ -144,12 +147,13 @@ export const Deck = () => {
             <div className="relative group">
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="px-3 py-1 text-xs font-medium bg-gray-100 text-gray-700 border border-gray-300 rounded hover:bg-gray-200 transition-colors"
+                className="btn-secondary px-3 py-1 text-xs font-medium rounded"
               >
                 Import cards
               </button>
               <div className="absolute top-full right-0 mt-1.5 z-20 hidden group-hover:block w-60 bg-gray-900 text-white text-xs rounded-lg p-2.5 shadow-lg pointer-events-none">
                 <div className="font-semibold mb-1">Loads cards from a .md file</div>
+                <div className="text-orange-300 text-xs mb-1.5">This will replace all existing cards and reset groups.</div>
                 <div className="text-gray-300 leading-relaxed">Accepts two formats:
                   <div className="mt-1.5 font-mono bg-gray-800 rounded p-1.5 text-gray-200 leading-relaxed">
                     ## Card label<br />
@@ -163,7 +167,7 @@ export const Deck = () => {
             </div>
             <button
               onClick={() => setIsAdding(true)}
-              className="px-3 py-1 text-xs font-medium bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+              className="btn-cta px-3 py-1 text-xs font-medium rounded"
             >
               + Add Card
             </button>
@@ -183,7 +187,7 @@ export const Deck = () => {
               if (e.key === 'Enter') handleAddCard();
               if (e.key === 'Escape') handleCancel();
             }}
-            className="w-full px-2 py-1 text-sm border border-gray-300 rounded mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-2 py-1 text-sm border border-gray-300 rounded mb-2 focus:outline-none focus:ring-2 focus:ring-emerald-600"
             autoFocus
           />
           <input
@@ -195,18 +199,18 @@ export const Deck = () => {
               if (e.key === 'Enter') handleAddCard();
               if (e.key === 'Escape') handleCancel();
             }}
-            className="w-full px-2 py-1 text-xs border border-gray-300 rounded mb-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-2 py-1 text-xs border border-gray-300 rounded mb-2 focus:outline-none focus:ring-2 focus:ring-emerald-600"
           />
           <div className="flex gap-2">
             <button
               onClick={handleAddCard}
-              className="px-3 py-1 text-xs font-medium bg-blue-500 text-white rounded hover:bg-blue-600"
+              className="btn-cta px-3 py-1 text-xs font-medium rounded"
             >
               Add
             </button>
             <button
               onClick={handleCancel}
-              className="px-3 py-1 text-xs font-medium bg-gray-300 text-gray-700 rounded hover:bg-gray-400"
+              className="btn-secondary px-3 py-1 text-xs font-medium rounded"
             >
               Cancel
             </button>
@@ -218,13 +222,25 @@ export const Deck = () => {
       {unsortedCards.length > 0 ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {unsortedCards.map((card) => (
-            <CardItem key={card.id} card={card} />
+            <div key={card.id} className={editingCardId === card.id ? 'col-span-full' : ''}>
+              <CardItem
+                card={card}
+                isEditing={editingCardId === card.id}
+                onStartEdit={() => setEditingCardId(card.id)}
+                onRemove={() => removeCard(card.id)}
+                onEdit={(label, description) => {
+                  updateCard(card.id, { label, description });
+                  setEditingCardId(null);
+                }}
+                onCancelEdit={() => setEditingCardId(null)}
+              />
+            </div>
           ))}
         </div>
       ) : (
         !isAdding && (
-          <div className="text-center py-8 text-gray-400 text-sm">
-            All cards have been sorted into groups
+          <div className="text-center py-4 text-gray-400 text-sm">
+            No more cards left!
           </div>
         )
       )}
