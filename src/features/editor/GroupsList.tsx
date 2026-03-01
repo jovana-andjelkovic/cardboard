@@ -21,46 +21,46 @@ export const GroupsList = () => {
   return (
     <div className="flex h-full">
       {/* Left column: main-nav group — fixed, doesn't scroll with pages */}
-      <div className="w-56 flex-shrink-0 overflow-auto px-6 py-4">
-          <div className="flex items-center justify-between mb-2 px-1">
-            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
-              Main Nav
-            </div>
-            <div className="flex border border-gray-300 rounded overflow-hidden">
-              <button
-                onClick={() => setMainNavPosition('top')}
-                className={`px-2 py-0.5 text-xs transition-colors ${
-                  mainNavPosition === 'top'
-                    ? 'bg-gray-600 text-white'
-                    : 'bg-white text-gray-500 hover:bg-gray-50'
-                }`}
-                title="Top navigation"
-              >
-                Top
-              </button>
-              <button
-                onClick={() => setMainNavPosition('left')}
-                className={`px-2 py-0.5 text-xs transition-colors ${
-                  mainNavPosition === 'left'
-                    ? 'bg-gray-600 text-white'
-                    : 'bg-white text-gray-500 hover:bg-gray-50'
-                }`}
-                title="Left navigation"
-              >
-                Left
-              </button>
-            </div>
+      <div className="w-56 flex-shrink-0 overflow-auto pl-6 pr-0 py-4">
+        <div className="flex items-center justify-between mb-2 px-1">
+          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+            Main Nav
           </div>
-          <GroupZone group={mainNavGroup} />
+          <div className="flex border border-gray-300 rounded overflow-hidden">
+            <button
+              onClick={() => setMainNavPosition('top')}
+              className={`px-2 py-0.5 text-xs transition-colors ${
+                mainNavPosition === 'top'
+                  ? 'bg-gray-600 text-white'
+                  : 'bg-white text-gray-500 hover:bg-gray-50'
+              }`}
+              title="Top navigation"
+            >
+              Top
+            </button>
+            <button
+              onClick={() => setMainNavPosition('left')}
+              className={`px-2 py-0.5 text-xs transition-colors ${
+                mainNavPosition === 'left'
+                  ? 'bg-gray-600 text-white'
+                  : 'bg-white text-gray-500 hover:bg-gray-50'
+              }`}
+              title="Left navigation"
+            >
+              Left
+            </button>
+          </div>
         </div>
+        <GroupZone group={mainNavGroup} />
+      </div>
 
-        {/* Connector */}
-        <div className="flex flex-col items-center self-stretch pt-8 px-3">
-          <div className="w-px flex-1 bg-gray-200" />
-        </div>
+      {/* Connector */}
+      <div className="flex flex-col items-center self-stretch pt-8 px-3">
+        <div className="w-px flex-1 bg-gray-200" />
+      </div>
 
-        {/* Right column: pages paired with their nav cards — scrolls independently */}
-        <div className="flex-1 min-w-0 overflow-auto px-6 py-4 pb-20">
+      {/* Right column: pages paired with their nav cards — scrolls independently */}
+      <div className="flex-1 min-w-0 overflow-auto px-6 py-4 pb-20">
           <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 px-1">
             Pages
           </div>

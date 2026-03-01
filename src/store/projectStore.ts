@@ -55,115 +55,21 @@ type ProjectStore = ProjectState & ProjectActions & UIState;
 const createInitialState = (): ProjectState => {
   const mainNavGroupId = nanoid();
 
-  // Sample cards for a project management app
-  const dashboardCard: CardDefinition = { id: nanoid(), label: 'Dashboard', description: 'Overview of all projects and tasks' };
-  const projectsCard: CardDefinition = { id: nanoid(), label: 'Projects', description: 'Manage your projects' };
-  const settingsCard: CardDefinition = { id: nanoid(), label: 'Settings', description: 'Configure preferences' };
-
-  // Page content cards
-  const activityFeedCard: CardDefinition = { id: nanoid(), label: 'Activity Feed', description: 'Recent updates' };
-  const reportsCard: CardDefinition = { id: nanoid(), label: 'Reports', description: 'Analytics and insights' };
-
-  // Secondary nav cards for Projects page
-  const activeProjectsCard: CardDefinition = { id: nanoid(), label: 'Active Projects', description: 'In-progress projects' };
-  const archivedCard: CardDefinition = { id: nanoid(), label: 'Archived', description: 'Completed projects' };
-
-  // Unsorted cards
-  const unsortedCards: CardDefinition[] = [
-    { id: nanoid(), label: 'Team Members', description: 'View and manage team' },
-    { id: nanoid(), label: 'Calendar', description: 'Schedule and deadlines' },
-    { id: nanoid(), label: 'Notifications', description: 'Activity alerts' },
-    { id: nanoid(), label: 'Billing', description: 'Payment and invoices' },
-    { id: nanoid(), label: 'Help Center', description: 'Documentation and support' },
-  ];
-
-  const allCards = [
-    dashboardCard,
-    projectsCard,
-    settingsCard,
-    activityFeedCard,
-    reportsCard,
-    activeProjectsCard,
-    archivedCard,
-    ...unsortedCards,
-  ];
-
-  // Auto-created pages (owned by nav cards)
-  const dashboardPageId = nanoid();
-  const projectsPageId = nanoid();
-  const settingsPageId = nanoid();
-
-  // Secondary nav group for Projects page
-  const projectsSecNavId = nanoid();
-
-  // Pages owned by secondary nav cards
-  const activeProjectsPageId = nanoid();
-  const archivedPageId = nanoid();
-
-  const groups: Group[] = [
-    {
-      id: mainNavGroupId,
-      label: 'Main Navigation',
-      cardIds: [dashboardCard.id, projectsCard.id, settingsCard.id],
-      prototypeRole: 'main-nav',
-      order: 0,
-    },
-    {
-      id: dashboardPageId,
-      label: 'Dashboard Page',
-      cardIds: [activityFeedCard.id, reportsCard.id],
-      prototypeRole: 'page',
-      order: 1,
-      ownerCardId: dashboardCard.id,
-    },
-    {
-      id: projectsPageId,
-      label: 'Projects Page',
-      cardIds: [],
-      prototypeRole: 'page',
-      order: 2,
-      ownerCardId: projectsCard.id,
-    },
-    {
-      id: settingsPageId,
-      label: 'Settings Page',
-      cardIds: [],
-      prototypeRole: 'page',
-      order: 3,
-      ownerCardId: settingsCard.id,
-    },
-    {
-      id: projectsSecNavId,
-      label: 'Projects Nav',
-      cardIds: [activeProjectsCard.id, archivedCard.id],
-      prototypeRole: 'secondary-nav',
-      order: 4,
-    },
-    {
-      id: activeProjectsPageId,
-      label: 'Active Projects Page',
-      cardIds: [],
-      prototypeRole: 'page',
-      order: 5,
-      ownerCardId: activeProjectsCard.id,
-    },
-    {
-      id: archivedPageId,
-      label: 'Archived Page',
-      cardIds: [],
-      prototypeRole: 'page',
-      order: 6,
-      ownerCardId: archivedCard.id,
-    },
-  ];
-
-  const connections: Connection[] = [
-    { fromGroupId: mainNavGroupId, toGroupId: dashboardPageId },
-    { fromGroupId: mainNavGroupId, toGroupId: projectsPageId },
-    { fromGroupId: mainNavGroupId, toGroupId: settingsPageId },
-    { fromGroupId: projectsPageId, toGroupId: projectsSecNavId },
-    { fromGroupId: projectsSecNavId, toGroupId: activeProjectsPageId },
-    { fromGroupId: projectsSecNavId, toGroupId: archivedPageId },
+  // Task manager card set — all start unsorted
+  const cards: CardDefinition[] = [
+    { id: nanoid(), label: 'Dashboard', description: 'Overview of tasks and activity' },
+    { id: nanoid(), label: 'My Tasks', description: 'Tasks assigned to you' },
+    { id: nanoid(), label: 'Team Tasks', description: 'Tasks across the whole team' },
+    { id: nanoid(), label: 'Completed', description: 'Finished and closed tasks' },
+    { id: nanoid(), label: 'Inbox', description: 'New assignments and mentions' },
+    { id: nanoid(), label: 'Calendar', description: 'Deadlines and scheduled work' },
+    { id: nanoid(), label: 'Reports', description: 'Progress and performance insights' },
+    { id: nanoid(), label: 'Notifications', description: 'Activity alerts and updates' },
+    { id: nanoid(), label: 'Team Members', description: 'Manage people and roles' },
+    { id: nanoid(), label: 'Attachments', description: 'Files linked to tasks' },
+    { id: nanoid(), label: 'Archive', description: 'Older completed work' },
+    { id: nanoid(), label: 'Settings', description: 'Preferences and configuration' },
+    { id: nanoid(), label: 'Help', description: 'Documentation and support' },
   ];
 
   return {
@@ -174,10 +80,18 @@ const createInitialState = (): ProjectState => {
       updatedAt: new Date().toISOString(),
       version: 1,
     },
-    cards: allCards,
-    groups,
-    connections,
-    unsortedCardIds: unsortedCards.map(c => c.id),
+    cards,
+    groups: [
+      {
+        id: mainNavGroupId,
+        label: 'Main Navigation',
+        cardIds: [],
+        prototypeRole: 'main-nav',
+        order: 0,
+      },
+    ],
+    connections: [],
+    unsortedCardIds: cards.map(c => c.id),
   };
 };
 
