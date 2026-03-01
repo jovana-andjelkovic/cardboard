@@ -1,9 +1,11 @@
+import { useRef, useState } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { useProjectStore } from '../../store/projectStore';
 import { CardItem } from './CardItem';
+import { ConfirmPopover } from './ConfirmPopover';
 import type { Group, CardDefinition } from '../../store/types';
 
 interface SortableCardProps {
@@ -51,6 +53,9 @@ export const GroupZone = ({ group }: GroupZoneProps) => {
   const removeGroup = useProjectStore((state) => state.removeGroup);
   const addSecondaryNavToPage = useProjectStore((state) => state.addSecondaryNavToPage);
 
+  const deleteButtonRef = useRef<HTMLButtonElement>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
   const { setNodeRef, isOver } = useDroppable({
     id: group.id,
     data: {
@@ -72,16 +77,15 @@ export const GroupZone = ({ group }: GroupZoneProps) => {
     group.ownerCardId != null &&
     groups.some(g => g.prototypeRole === 'secondary-nav' && g.cardIds.includes(group.ownerCardId!));
 
-  const handleDelete = () => {
-    const isOwnedPage = group.prototypeRole === 'page' && group.ownerCardId;
-    const ownerLabel = ownerCard?.label ?? 'this nav item';
-    const message = isOwnedPage
-      ? `This will remove "${ownerLabel}" from the main nav and delete this page and all its content. Continue?`
-      : `Delete "${group.label}"? All cards will return to the deck.`;
+  const isOwnedPage = group.prototypeRole === 'page' && group.ownerCardId;
+  const ownerLabel = ownerCard?.label ?? 'this nav item';
+  const deleteMessage = isOwnedPage
+    ? `This will remove "${ownerLabel}" from the main nav and delete this page and all its content.`
+    : `Delete "${group.label}"? All cards will return to the deck.`;
 
-    if (confirm(message)) {
-      removeGroup(group.id);
-    }
+  const handleDeleteConfirm = () => {
+    removeGroup(group.id);
+    setConfirmingDelete(false);
   };
 
   const roleBadgeStyles = {
@@ -93,6 +97,7 @@ export const GroupZone = ({ group }: GroupZoneProps) => {
   const roleBadgeStyle = roleBadgeStyles[group.prototypeRole];
 
   return (
+    <>
     <div className="bg-white border border-gray-300 rounded-lg overflow-hidden">
       {/* Header */}
       <div className="bg-gray-50 border-b border-gray-300 px-4 py-3">
@@ -125,7 +130,8 @@ export const GroupZone = ({ group }: GroupZoneProps) => {
 
             {group.prototypeRole !== 'main-nav' && (
               <button
-                onClick={handleDelete}
+                ref={deleteButtonRef}
+                onClick={() => setConfirmingDelete(true)}
                 className="p-1 text-red-500 hover:text-red-700 text-xs"
                 title="Delete group"
               >
@@ -165,5 +171,16 @@ export const GroupZone = ({ group }: GroupZoneProps) => {
         )}
       </div>
     </div>
+
+    {confirmingDelete && deleteButtonRef.current && (
+      <ConfirmPopover
+        anchor={deleteButtonRef.current.getBoundingClientRect()}
+        message={deleteMessage}
+        confirmLabel="Delete"
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => setConfirmingDelete(false)}
+      />
+    )}
+    </>
   );
 };

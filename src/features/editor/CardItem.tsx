@@ -27,9 +27,10 @@ export const CardItem = React.memo(({ card, group }: CardItemProps) => {
   };
 
   const cardRef = useRef<HTMLDivElement | null>(null);
+  const labelRef = useRef<HTMLDivElement>(null);
+  const descRef = useRef<HTMLDivElement>(null);
   const [showTooltip, setShowTooltip] = useState(false);
   const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties>({});
-  const [arrowBelow, setArrowBelow] = useState(false);
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const setRefs = (el: HTMLDivElement | null) => {
@@ -37,9 +38,17 @@ export const CardItem = React.memo(({ card, group }: CardItemProps) => {
     cardRef.current = el;
   };
 
+  const isTruncated = () => {
+    const labelEl = labelRef.current;
+    const descEl = descRef.current;
+    if (labelEl && labelEl.scrollWidth > labelEl.offsetWidth) return true;
+    if (descEl && descEl.scrollWidth > descEl.offsetWidth) return true;
+    return false;
+  };
+
   const handleMouseEnter = () => {
     hoverTimer.current = setTimeout(() => {
-      if (!cardRef.current) return;
+      if (!cardRef.current || !isTruncated()) return;
       const rect = cardRef.current.getBoundingClientRect();
 
       // Horizontal: left-align with card, clamp to viewport
@@ -50,10 +59,8 @@ export const CardItem = React.memo(({ card, group }: CardItemProps) => {
       if (left < TOOLTIP_GAP) left = TOOLTIP_GAP;
 
       // Vertical: prefer above, fall back to below if not enough room
-      const spaceAbove = rect.top;
-      const below = spaceAbove < 80;
+      const below = rect.top < 80;
 
-      setArrowBelow(below);
       setTooltipStyle(
         below
           ? { position: 'fixed', top: rect.bottom + TOOLTIP_GAP, left }
@@ -86,7 +93,7 @@ export const CardItem = React.memo(({ card, group }: CardItemProps) => {
       style={style}
       {...listeners}
       {...attributes}
-      className="relative bg-white border border-gray-300 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing"
+      className="bg-white border border-gray-300 rounded-lg p-3 shadow-sm hover:shadow-md transition-shadow cursor-grab active:cursor-grabbing"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onMouseDown={handleMouseDown}
@@ -97,17 +104,9 @@ export const CardItem = React.memo(({ card, group }: CardItemProps) => {
           style={{ ...tooltipStyle, width: TOOLTIP_WIDTH, zIndex: 9999 }}
           className="bg-gray-900 text-white text-xs rounded-lg p-2.5 shadow-lg pointer-events-none"
         >
-          {/* Arrow pointing down (tooltip above card) */}
-          {!arrowBelow && (
-            <div className="absolute top-full left-4 border-4 border-transparent border-t-gray-900" />
-          )}
           <div className="font-semibold leading-snug">{card.label}</div>
           {card.description && (
             <div className="mt-1 text-gray-300 leading-snug">{card.description}</div>
-          )}
-          {/* Arrow pointing up (tooltip below card) */}
-          {arrowBelow && (
-            <div className="absolute bottom-full left-4 border-4 border-transparent border-b-gray-900" />
           )}
         </div>,
         document.body
@@ -124,9 +123,9 @@ export const CardItem = React.memo(({ card, group }: CardItemProps) => {
         )}
 
         <div className="flex-1 min-w-0">
-          <div className="font-medium text-gray-900 text-sm truncate">{card.label}</div>
+          <div ref={labelRef} className="font-medium text-gray-900 text-sm truncate">{card.label}</div>
           {card.description && (
-            <div className="text-xs text-gray-500 mt-0.5 truncate">
+            <div ref={descRef} className="text-xs text-gray-500 mt-0.5 truncate">
               {card.description}
             </div>
           )}

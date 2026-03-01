@@ -21,7 +21,6 @@ function App() {
 
   const getSnapshot = useProjectStore((state) => state.getSnapshot);
   const loadSnapshot = useProjectStore((state) => state.loadSnapshot);
-  const resetProject = useProjectStore((state) => state.resetProject);
   const setTitle = useProjectStore((state) => state.setTitle);
   const meta = useProjectStore((state) => state.meta);
 
@@ -33,13 +32,6 @@ function App() {
   const handleTitleCommit = () => {
     setTitle(titleDraft);
     setIsEditingTitle(false);
-  };
-
-  const handleReset = () => {
-    if (window.confirm('Reset all cards to unsorted? Groups and connections will be cleared. Cards are kept.')) {
-      window.location.hash = '';
-      resetProject();
-    }
   };
 
   // Export handler
@@ -79,8 +71,43 @@ function App() {
   return (
     <div className="h-screen flex flex-col bg-gray-50">
       {/* Top bar */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-6">
+      <div className="bg-white border-b border-gray-200 px-4 py-2 grid grid-cols-3 items-center">
+        {/* Left: view toggle */}
+        <div className="flex border border-gray-300 rounded overflow-hidden w-fit">
+          <button
+            onClick={() => setActiveView('split')}
+            className={`px-3 py-1 text-sm font-medium transition-colors ${
+              activeView === 'split'
+                ? 'bg-blue-500 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            Split
+          </button>
+          <button
+            onClick={() => setActiveView('editor')}
+            className={`px-3 py-1 text-sm font-medium transition-colors ${
+              activeView === 'editor'
+                ? 'bg-blue-500 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            Editor
+          </button>
+          <button
+            onClick={() => setActiveView('preview')}
+            className={`px-3 py-1 text-sm font-medium transition-colors ${
+              activeView === 'preview'
+                ? 'bg-blue-500 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            Preview
+          </button>
+        </div>
+
+        {/* Centre: title */}
+        <div className="flex justify-center">
           {isEditingTitle ? (
             <input
               autoFocus
@@ -92,7 +119,7 @@ function App() {
                 if (e.key === 'Enter') handleTitleCommit();
                 if (e.key === 'Escape') setIsEditingTitle(false);
               }}
-              className="text-xl font-semibold text-gray-800 border-b-2 border-blue-500 bg-transparent focus:outline-none w-64"
+              className="text-sm font-semibold text-gray-800 border-b-2 border-blue-500 bg-transparent focus:outline-none w-48 text-center"
             />
           ) : (
             <div
@@ -100,11 +127,11 @@ function App() {
               onClick={handleTitleClick}
               title="Click to rename"
             >
-              <h1 className="text-xl font-semibold text-gray-800 group-hover:text-blue-600">
+              <h1 className="text-sm font-semibold text-gray-800 group-hover:text-blue-600">
                 {meta.title}
               </h1>
               <svg
-                className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                className="w-3 h-3 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
                 viewBox="0 0 16 16"
                 fill="currentColor"
               >
@@ -112,60 +139,21 @@ function App() {
               </svg>
             </div>
           )}
-
-          {/* View toggle */}
-          <div className="flex border border-gray-300 rounded overflow-hidden">
-            <button
-              onClick={() => setActiveView('split')}
-              className={`px-4 py-1.5 text-sm font-medium transition-colors ${
-                activeView === 'split'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              Split
-            </button>
-            <button
-              onClick={() => setActiveView('editor')}
-              className={`px-4 py-1.5 text-sm font-medium transition-colors ${
-                activeView === 'editor'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              Editor
-            </button>
-            <button
-              onClick={() => setActiveView('preview')}
-              className={`px-4 py-1.5 text-sm font-medium transition-colors ${
-                activeView === 'preview'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-white text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              Preview
-            </button>
-          </div>
         </div>
 
-        <div className="flex gap-3">
+        {/* Right: action buttons */}
+        <div className="flex gap-2 justify-end">
           <button
-            onClick={handleReset}
-            className="px-4 py-2 bg-white text-red-600 border border-red-300 rounded hover:bg-red-50 transition-colors"
+            onClick={handleImport}
+            className="px-3 py-1 text-sm font-semibold bg-white text-gray-500 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
           >
-            Reset
+            Load project
           </button>
           <button
             onClick={handleExport}
-            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+            className="px-3 py-1 text-sm font-semibold bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
           >
-            Export
-          </button>
-          <button
-            onClick={handleImport}
-            className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-800 transition-colors"
-          >
-            Import
+            Save project
           </button>
         </div>
       </div>

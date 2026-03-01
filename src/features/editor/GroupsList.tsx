@@ -21,7 +21,7 @@ export const GroupsList = () => {
   return (
     <div>
       {/* Paired layout: nav on left, pages on right */}
-      <div className="flex gap-0 items-start">
+      <div className="flex items-start">
         {/* Left column: main-nav group */}
         <div className="w-56 flex-shrink-0">
           <div className="flex items-center justify-between mb-2 px-1">
