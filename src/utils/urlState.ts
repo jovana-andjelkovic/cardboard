@@ -4,16 +4,18 @@ import { useProjectStore } from '../store/projectStore';
 import type { ProjectState } from '../store/types';
 
 /**
- * Encodes the project state to a URL hash
+ * Encodes the project state to a URL hash, stripping volatile meta fields.
  */
 export const encodeStateToUrl = (state: ProjectState): string => {
-  const json = JSON.stringify(state);
+  const { updatedAt: _u, createdAt: _c, version: _v, ...metaToEncode } = state.meta;
+  const stripped = { ...state, meta: metaToEncode };
+  const json = JSON.stringify(stripped);
   const compressed = compressToEncodedURIComponent(json);
   return compressed;
 };
 
 /**
- * Decodes the project state from the URL hash
+ * Decodes the project state from the URL hash, reconstructing stripped meta fields.
  */
 export const decodeStateFromUrl = (): ProjectState | null => {
   try {
@@ -24,6 +26,10 @@ export const decodeStateFromUrl = (): ProjectState | null => {
     if (!decompressed) return null;
 
     const state = JSON.parse(decompressed) as ProjectState;
+    const now = new Date().toISOString();
+    state.meta.createdAt = now;
+    state.meta.updatedAt = now;
+    state.meta.version = 1;
     return state;
   } catch (error) {
     console.error('Failed to decode state from URL:', error);
@@ -31,12 +37,26 @@ export const decodeStateFromUrl = (): ProjectState | null => {
   }
 };
 
+const DEFAULT_TITLE = 'Untitled project';
+
+const isDefaultState = (state: ProjectState): boolean => {
+  const mainNav = state.groups.find((g) => g.prototypeRole === 'main-nav');
+  return (
+    state.groups.length === 1 &&
+    (mainNav?.cardIds.length ?? 0) === 0 &&
+    state.meta.title === DEFAULT_TITLE
+  );
+};
+
 /**
- * Updates the URL hash with the current state
+ * Updates the URL hash with the current state, or clears it if no meaningful changes exist.
  */
 export const updateUrlWithState = (state: ProjectState): void => {
-  const encoded = encodeStateToUrl(state);
-  window.location.hash = encoded;
+  if (isDefaultState(state)) {
+    window.location.hash = '';
+  } else {
+    window.location.hash = encodeStateToUrl(state);
+  }
 };
 
 /**
