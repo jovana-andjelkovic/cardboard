@@ -68,7 +68,7 @@ export const useUrlSync = () => {
   const getSnapshot = useProjectStore((state) => state.getSnapshot);
   const loadSnapshot = useProjectStore((state) => state.loadSnapshot);
   const hasLoadedFromUrl = useRef(false);
-  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // On mount, load from URL if hash exists
   useEffect(() => {
@@ -83,7 +83,7 @@ export const useUrlSync = () => {
 
   // Subscribe to store changes and update URL (debounced)
   useEffect(() => {
-    const unsubscribe = useProjectStore.subscribe((state) => {
+    const unsubscribe = useProjectStore.subscribe((_state) => {
       // Clear existing timer
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);

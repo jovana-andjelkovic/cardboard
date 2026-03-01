@@ -10,7 +10,6 @@ export const Deck = () => {
   const cards = useProjectStore((state) => state.cards);
   const unsortedCardIds = useProjectStore((state) => state.unsortedCardIds);
   const addCard = useProjectStore((state) => state.addCard);
-  const bulkAddCards = useProjectStore((state) => state.bulkAddCards);
   const replaceAllCards = useProjectStore((state) => state.replaceAllCards);
   const removeCard = useProjectStore((state) => state.removeCard);
   const updateCard = useProjectStore((state) => state.updateCard);

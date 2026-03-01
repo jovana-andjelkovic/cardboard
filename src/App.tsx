@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useProjectStore } from './store/projectStore';
 import { useUrlSync } from './utils/urlState';
 import { exportToFile, importFromFile } from './utils/fileIO';
