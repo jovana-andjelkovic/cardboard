@@ -219,6 +219,7 @@ export const Deck = () => {
 
       {/* Cards grid */}
       {unsortedCards.length > 0 ? (
+        <div className="max-h-[30vh] overflow-y-auto">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {unsortedCards.map((card) => (
             <div key={card.id} className={editingCardId === card.id ? 'col-span-full' : ''}>
@@ -235,6 +236,7 @@ export const Deck = () => {
               />
             </div>
           ))}
+        </div>
         </div>
       ) : (
         !isAdding && (
