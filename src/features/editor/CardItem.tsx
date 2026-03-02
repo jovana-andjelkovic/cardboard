@@ -187,9 +187,9 @@ export const CardItem = React.memo(({ card, group, onRemove, onEdit, onCancelEdi
           style={{ ...tooltipStyle, width: TOOLTIP_WIDTH, zIndex: 9999 }}
           className="bg-gray-900 text-white text-xs rounded-lg p-2.5 shadow-lg pointer-events-none"
         >
-          <div className="font-semibold leading-snug">{card.label}</div>
+          <div className="font-semibold leading-snug break-words">{card.label}</div>
           {card.description && (
-            <div className="mt-1 text-gray-300 leading-snug">{card.description}</div>
+            <div className="mt-1 text-gray-300 leading-snug break-words">{card.description}</div>
           )}
         </div>,
         document.body

@@ -53,7 +53,7 @@ const isDefaultState = (state: ProjectState): boolean => {
  */
 export const updateUrlWithState = (state: ProjectState): void => {
   if (isDefaultState(state)) {
-    window.location.hash = '';
+    history.replaceState(null, '', window.location.pathname + window.location.search);
   } else {
     window.location.hash = encodeStateToUrl(state);
   }

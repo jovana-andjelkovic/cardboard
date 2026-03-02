@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { useDroppable } from '@dnd-kit/core';
+import { useDroppable, useDndContext } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -50,6 +50,7 @@ interface GroupZoneProps {
 export const GroupZone = ({ group }: GroupZoneProps) => {
   const cards = useProjectStore((state) => state.cards);
   const groups = useProjectStore((state) => state.groups);
+  const connections = useProjectStore((state) => state.connections);
   const removeGroup = useProjectStore((state) => state.removeGroup);
   const addSecondaryNavToPage = useProjectStore((state) => state.addSecondaryNavToPage);
 
@@ -64,6 +65,25 @@ export const GroupZone = ({ group }: GroupZoneProps) => {
     },
   });
 
+  const { active } = useDndContext();
+  const activeDragCardId = active?.id as string | undefined;
+  const activeSourceGroupId = active?.data?.current?.groupId as string | undefined;
+  const activeSourceGroup = activeSourceGroupId ? groups.find(g => g.id === activeSourceGroupId) : null;
+  const isDraggingFromMainNav = activeSourceGroup?.prototypeRole === 'main-nav';
+
+  const isForbiddenDrop = isDraggingFromMainNav && !!activeDragCardId && (() => {
+    if (group.ownerCardId === activeDragCardId) return true;
+    const ownedPage = groups.find(g => g.ownerCardId === activeDragCardId);
+    if (!ownedPage) return false;
+    // Own secondary nav
+    if (connections.some(c => c.fromGroupId === ownedPage.id && c.toGroupId === group.id)) return true;
+    // Child pages of own secondary navs
+    const ownSecNavIds = connections
+      .filter(c => c.fromGroupId === ownedPage.id && groups.find(g => g.id === c.toGroupId)?.prototypeRole === 'secondary-nav')
+      .map(c => c.toGroupId);
+    return ownSecNavIds.some(secNavId => connections.some(c => c.fromGroupId === secNavId && c.toGroupId === group.id));
+  })();
+
   const groupCards = group.cardIds
     .map((id) => cards.find((c) => c.id === id))
     .filter((c): c is NonNullable<typeof c> => c !== undefined);
@@ -74,8 +94,8 @@ export const GroupZone = ({ group }: GroupZoneProps) => {
     : undefined;
 
   const isSecondaryNavPage = group.prototypeRole === 'page' &&
-    group.ownerCardId != null &&
-    groups.some(g => g.prototypeRole === 'secondary-nav' && g.cardIds.includes(group.ownerCardId!));
+    connections.some(c => c.fromGroupId === group.id &&
+      groups.find(g => g.id === c.toGroupId)?.prototypeRole === 'secondary-nav');
 
   const isOwnedPage = group.prototypeRole === 'page' && group.ownerCardId;
   const ownerLabel = ownerCard?.label ?? 'this nav item';
@@ -141,7 +161,11 @@ export const GroupZone = ({ group }: GroupZoneProps) => {
       <div
         ref={setNodeRef}
         className={`p-4 min-h-[120px] ${
-          isOver ? 'bg-[#047C66]/10 border-2 border-[#047C66] border-dashed' : ''
+          isOver && isForbiddenDrop
+            ? 'bg-gray-100 border-2 border-gray-400 border-dashed'
+            : isOver
+            ? 'bg-[#047C66]/10 border-2 border-[#047C66] border-dashed'
+            : ''
         }`}
       >
         {groupCards.length > 0 ? (

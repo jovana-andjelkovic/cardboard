@@ -54,7 +54,7 @@ export const Deck = () => {
     const text = await file.text();
     const parsed = parseMarkdownCards(text);
 
-    window.location.hash = '';
+    history.replaceState(null, '', window.location.pathname + window.location.search);
     replaceAllCards(parsed);
 
     setImportFeedback(
@@ -70,7 +70,7 @@ export const Deck = () => {
   };
 
   const handleResetConfirm = () => {
-    window.location.hash = '';
+    history.replaceState(null, '', window.location.pathname + window.location.search);
     resetProject();
     setConfirmingReset(false);
   };
@@ -219,7 +219,7 @@ export const Deck = () => {
 
       {/* Cards grid */}
       {unsortedCards.length > 0 ? (
-        <div className="max-h-[30vh] overflow-y-auto">
+        <div className="max-h-[30vh] overflow-y-auto -mr-4 pr-4">
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {unsortedCards.map((card) => (
             <div key={card.id} className={editingCardId === card.id ? 'col-span-full' : ''}>

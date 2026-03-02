@@ -63,7 +63,7 @@ export const SecondaryNavPromptModal = () => {
       className="z-50 bg-white border border-gray-200 rounded-xl shadow-lg p-4"
     >
       <p className="text-sm text-gray-700 mb-3">
-        Should <span className="font-medium">"{prompt.cardLabel}"</span> be secondary nav instead?
+        Should <span className="font-medium block truncate">"{prompt.cardLabel}"</span> be secondary nav instead?
       </p>
       <div className="flex justify-end">
         <button

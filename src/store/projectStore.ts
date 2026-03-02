@@ -502,6 +502,10 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     const card = state.cards.find(c => c.id === cardId);
     if (!card) return;
 
+    // Block if this secondary-nav belongs to the page owned by the card being dropped
+    const ownedPage = state.groups.find(g => g.ownerCardId === cardId);
+    if (ownedPage && state.connections.some(c => c.fromGroupId === ownedPage.id && c.toGroupId === secNavGroupId)) return;
+
     const newPageId = nanoid();
     const newPage: Group = {
       id: newPageId,
@@ -654,6 +658,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
 
   addSecondaryNavToPage: (pageGroupId: string) => {
     const state = get();
+    // Bail if this page already has a secondary-nav connected to it
+    const alreadyHasSecNav = state.connections.some(c =>
+      c.fromGroupId === pageGroupId &&
+      state.groups.find(g => g.id === c.toGroupId)?.prototypeRole === 'secondary-nav'
+    );
+    if (alreadyHasSecNav) return;
     const newSecNavId = nanoid();
     const newSecNav: Group = {
       id: newSecNavId,

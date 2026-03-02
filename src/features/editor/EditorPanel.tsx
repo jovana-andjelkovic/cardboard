@@ -21,6 +21,7 @@ import type { CardDefinition } from '../../store/types';
 export const EditorPanel = () => {
   const cards = useProjectStore((state) => state.cards);
   const groups = useProjectStore((state) => state.groups);
+  const connections = useProjectStore((state) => state.connections);
   const moveCard = useProjectStore((state) => state.moveCard);
   const returnCardToDeck = useProjectStore((state) => state.returnCardToDeck);
   const reorderCardInGroup = useProjectStore((state) => state.reorderCardInGroup);
@@ -93,6 +94,9 @@ export const EditorPanel = () => {
         return;
       }
 
+      // A card cannot be dropped into the page it owns
+      if (targetGroup.ownerCardId === activeCardId) return;
+
       // Dropping into main-nav
       if (targetGroup.prototypeRole === 'main-nav') {
         if (isFromMainNav) {
@@ -103,7 +107,7 @@ export const EditorPanel = () => {
         return;
       }
 
-      // Dropping into a page group from main-nav → prompt for secondary nav
+      // Dropping into a page group from main-nav → prompt for secondary nav (only for direct pages, not child pages)
       if (targetGroup.prototypeRole === 'page' && isFromMainNav && !isSecondaryNavOwnedPage(targetGroup)) {
         moveCard(activeCardId, targetGroup.id, targetGroup.cardIds.length);
         const card = cards.find(c => c.id === activeCardId);
@@ -115,8 +119,14 @@ export const EditorPanel = () => {
         return;
       }
 
+      // Block main-nav cards from being placed in any other page (e.g. secondary-nav-owned child pages)
+      if (targetGroup.prototypeRole === 'page' && isFromMainNav) return;
+
       // Dropping into a secondary-nav group from outside → auto-create page
+      // Block if this secondary-nav belongs to the page owned by the dragged card
       if (targetGroup.prototypeRole === 'secondary-nav' && sourceGroup?.id !== targetGroup.id) {
+        const ownedPage = groups.find(g => g.ownerCardId === activeCardId);
+        if (ownedPage && connections.some(c => c.fromGroupId === ownedPage.id && c.toGroupId === targetGroup.id)) return;
         dropCardToSecondaryNav(activeCardId, targetGroup.id);
         return;
       }
@@ -132,6 +142,9 @@ export const EditorPanel = () => {
       const targetGroup = groups.find((g) => g.id === targetGroupId);
 
       if (!targetGroup) return;
+
+      // A card cannot be dropped into the page it owns
+      if (targetGroup.ownerCardId === activeCardId) return;
 
       const overCardId = over.id as string;
       const oldIndex = sourceGroup?.cardIds.indexOf(activeCardId) ?? -1;
@@ -154,7 +167,7 @@ export const EditorPanel = () => {
         return;
       }
 
-      // Dropping into a page from main-nav → prompt
+      // Dropping into a page from main-nav → prompt (only for direct pages, not child pages)
       if (targetGroup.prototypeRole === 'page' && isFromMainNav && !isSecondaryNavOwnedPage(targetGroup)) {
         moveCard(activeCardId, targetGroupId, newIndex >= 0 ? newIndex : targetGroup.cardIds.length);
         const card = cards.find(c => c.id === activeCardId);
@@ -166,8 +179,14 @@ export const EditorPanel = () => {
         return;
       }
 
+      // Block main-nav cards from being placed in any other page (e.g. secondary-nav-owned child pages)
+      if (targetGroup.prototypeRole === 'page' && isFromMainNav) return;
+
       // Dropping onto a card in a secondary-nav group from outside → auto-create page
+      // Block if this secondary-nav belongs to the page owned by the dragged card
       if (targetGroup.prototypeRole === 'secondary-nav' && sourceGroup?.id !== targetGroupId) {
+        const ownedPage = groups.find(g => g.ownerCardId === activeCardId);
+        if (ownedPage && connections.some(c => c.fromGroupId === ownedPage.id && c.toGroupId === targetGroupId)) return;
         dropCardToSecondaryNav(activeCardId, targetGroupId);
         return;
       }
