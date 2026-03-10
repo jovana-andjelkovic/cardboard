@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useDroppable, useDndContext } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
@@ -43,6 +43,61 @@ const SortableCard = ({ card, group }: SortableCardProps) => {
   );
 };
 
+
+interface NavSectionDropZoneProps {
+  sectionId: string;
+  groupId: string;
+  isEmpty: boolean;
+  children: React.ReactNode;
+}
+
+const NavSectionDropZone = ({ sectionId, groupId, isEmpty, children }: NavSectionDropZoneProps) => {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `nav-section-${sectionId}`,
+    data: { type: 'nav-section', groupId, sectionId },
+  });
+  return (
+    <div
+      ref={setNodeRef}
+      className={`rounded transition-colors ${isOver ? 'bg-[#047C66]/10 ring-1 ring-[#047C66]/40' : ''} ${isEmpty ? 'min-h-[28px]' : ''}`}
+    >
+      {children}
+      {isEmpty && (
+        <div className={`text-xs text-center py-1.5 ${isOver ? 'text-[#047C66]' : 'text-gray-300'}`}>
+          Drop card here
+        </div>
+      )}
+    </div>
+  );
+};
+
+interface NavUnsortedDropZoneProps {
+  groupId: string;
+  position: 'top' | 'bottom';
+  children?: React.ReactNode;
+}
+
+const NavUnsortedDropZone = ({ groupId, position, children }: NavUnsortedDropZoneProps) => {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `nav-unsorted-${position}-${groupId}`,
+    data: { type: 'nav-unsorted', groupId },
+  });
+  const isEmpty = !children || (Array.isArray(children) && children.length === 0);
+  return (
+    <div
+      ref={setNodeRef}
+      className={`rounded transition-colors ${isOver ? 'bg-[#047C66]/10 ring-1 ring-[#047C66]/40' : 'ring-1 ring-gray-200'} ${isEmpty ? 'min-h-[28px]' : ''}`}
+    >
+      {children}
+      {isEmpty && (
+        <div className={`text-xs text-center py-1.5 ${isOver ? 'text-[#047C66]' : 'text-gray-300'}`}>
+          Drop card here
+        </div>
+      )}
+    </div>
+  );
+};
+
 interface GroupZoneProps {
   group: Group;
 }
@@ -53,9 +108,15 @@ export const GroupZone = ({ group }: GroupZoneProps) => {
   const connections = useProjectStore((state) => state.connections);
   const removeGroup = useProjectStore((state) => state.removeGroup);
   const addSecondaryNavToPage = useProjectStore((state) => state.addSecondaryNavToPage);
+  const addNavSection = useProjectStore((state) => state.addNavSection);
+  const removeNavSection = useProjectStore((state) => state.removeNavSection);
+
 
   const deleteButtonRef = useRef<HTMLButtonElement>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [isAddingSection, setIsAddingSection] = useState(false);
+  const [newSectionLabel, setNewSectionLabel] = useState('');
+
 
   const { setNodeRef, isOver } = useDroppable({
     id: group.id,
@@ -106,6 +167,15 @@ export const GroupZone = ({ group }: GroupZoneProps) => {
   const handleDeleteConfirm = () => {
     removeGroup(group.id);
     setConfirmingDelete(false);
+  };
+
+  const handleAddSection = () => {
+    const label = newSectionLabel.trim();
+    if (label) {
+      addNavSection(group.id, label);
+      setNewSectionLabel('');
+      setIsAddingSection(false);
+    }
   };
 
   const roleBadgeStyles = {
@@ -168,18 +238,143 @@ export const GroupZone = ({ group }: GroupZoneProps) => {
             : ''
         }`}
       >
-        {groupCards.length > 0 ? (
-          <SortableContext items={groupCards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-            <div className="space-y-2">
-              {groupCards.map((card) => (
-                <SortableCard key={card.id} card={card} group={group} />
-              ))}
-            </div>
-          </SortableContext>
+        {group.prototypeRole !== 'page' ? (
+          // Main-nav and secondary-nav rendering with sections support
+          <>
+            <SortableContext items={groupCards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+              {(() => {
+                const sectionCardIds = new Set((group.navSections ?? []).flatMap(s => s.cardIds));
+                const unsectionedCards = groupCards.filter(c => !sectionCardIds.has(c.id));
+
+                const hasSections = (group.navSections?.length ?? 0) > 0;
+
+                return (
+                  <div className="space-y-2">
+                    {/* Unsorted top — always visible when sections exist, or plain list when no sections */}
+                    {hasSections ? (
+                      <div>
+                        <div className="flex items-center px-1 mb-1">
+                          <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wider">Unsorted</span>
+                        </div>
+                        <NavUnsortedDropZone groupId={group.id} position="top">
+                          {unsectionedCards.length > 0 && (
+                            <div className="space-y-1 p-1">
+                              {unsectionedCards.map(card => (
+                                <SortableCard key={card.id} card={card} group={group} />
+                              ))}
+                            </div>
+                          )}
+                        </NavUnsortedDropZone>
+                      </div>
+                    ) : (
+                      <>
+                        {groupCards.length === 0 && (
+                          <div className="flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg py-8 text-gray-400 text-sm">
+                            Drop cards here
+                          </div>
+                        )}
+                        {unsectionedCards.map(card => (
+                          <SortableCard key={card.id} card={card} group={group} />
+                        ))}
+                      </>
+                    )}
+
+                      {/* Named sections */}
+                      {(group.navSections ?? []).map(section => {
+                        const sectionCards = section.cardIds
+                          .map(id => cards.find(c => c.id === id))
+                          .filter((c): c is NonNullable<typeof c> => c !== undefined);
+                        return (
+                          <div key={section.id} className="mt-2">
+                            {/* Section header */}
+                            <div className="flex items-center justify-between px-1 mb-1">
+                              <span className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider truncate">
+                                {section.label}
+                              </span>
+                              <button
+                                onClick={() => removeNavSection(group.id, section.id)}
+                                className="text-gray-300 hover:text-gray-500 transition-colors text-xs leading-none px-0.5"
+                                title="Remove section"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                            {/* Section drop zone */}
+                            <NavSectionDropZone
+                              sectionId={section.id}
+                              groupId={group.id}
+                              isEmpty={sectionCards.length === 0}
+                            >
+                              <div className="space-y-1">
+                                {sectionCards.map(card => (
+                                  <SortableCard key={card.id} card={card} group={group} />
+                                ))}
+                              </div>
+                            </NavSectionDropZone>
+                          </div>
+                        );
+                      })}
+
+                      {/* Unsorted bottom — only when sections exist */}
+                      {hasSections && (
+                        <div className="mt-2">
+                          <div className="flex items-center px-1 mb-1">
+                            <span className="text-[10px] font-semibold text-gray-300 uppercase tracking-wider">Unsorted</span>
+                          </div>
+                          <NavUnsortedDropZone groupId={group.id} position="bottom" />
+                        </div>
+                      )}
+
+                      {/* Add section UI */}
+                      <div className="pt-2">
+                        {isAddingSection ? (
+                          <div className="space-y-1">
+                            <input
+                              type="text"
+                              placeholder="Section label"
+                              value={newSectionLabel}
+                              onChange={(e) => setNewSectionLabel(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') handleAddSection();
+                                if (e.key === 'Escape') { setIsAddingSection(false); setNewSectionLabel(''); }
+                              }}
+                              className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-emerald-600"
+                              autoFocus
+                            />
+                            <div className="flex gap-1">
+                              <button onClick={handleAddSection} className="btn-cta px-2 py-0.5 text-xs font-medium rounded">Add</button>
+                              <button onClick={() => { setIsAddingSection(false); setNewSectionLabel(''); }} className="btn-secondary px-2 py-0.5 text-xs font-medium rounded">Cancel</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => setIsAddingSection(true)}
+                            className="text-xs text-gray-400 hover:text-gray-600 transition-colors w-full text-left px-1"
+                          >
+                            + Add section
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+              })()}
+            </SortableContext>
+          </>
         ) : (
-          <div className="h-full flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg py-12 text-gray-400 text-sm">
-            Drop cards here
-          </div>
+          // Simple rendering for page groups
+          groupCards.length > 0 ? (
+            <SortableContext items={groupCards.map((c) => c.id)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-2">
+                {groupCards.map((card) => (
+                  <SortableCard key={card.id} card={card} group={group} />
+                ))}
+              </div>
+            </SortableContext>
+          ) : (
+            <div className="h-full flex items-center justify-center border-2 border-dashed border-gray-300 rounded-lg py-12 text-gray-400 text-sm">
+              Drop cards here
+            </div>
+          )
         )}
       </div>
     </div>

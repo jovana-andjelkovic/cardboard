@@ -1,29 +1,28 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { useProjectStore } from '../../store/projectStore';
 import { CardItem } from './CardItem';
 import { ConfirmPopover } from './ConfirmPopover';
 import { parseMarkdownCards } from '../../utils/markdownImport';
-import { exportCardsToMarkdown } from '../../utils/fileIO';
+import { exportCardsToMarkdown, cardsToMarkdownString } from '../../utils/fileIO';
 
 export const Deck = () => {
   const cards = useProjectStore((state) => state.cards);
   const unsortedCardIds = useProjectStore((state) => state.unsortedCardIds);
-  const addCard = useProjectStore((state) => state.addCard);
   const replaceAllCards = useProjectStore((state) => state.replaceAllCards);
   const removeCard = useProjectStore((state) => state.removeCard);
   const updateCard = useProjectStore((state) => state.updateCard);
+  const reconcileCards = useProjectStore((state) => state.reconcileCards);
   const getSnapshot = useProjectStore((state) => state.getSnapshot);
   const resetProject = useProjectStore((state) => state.resetProject);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const resetButtonRef = useRef<HTMLButtonElement>(null);
   const [importFeedback, setImportFeedback] = useState<string | null>(null);
-  const [isAdding, setIsAdding] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [confirmingReset, setConfirmingReset] = useState(false);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
-  const [newLabel, setNewLabel] = useState('');
-  const [newDescription, setNewDescription] = useState('');
+  const [bulkText, setBulkText] = useState('');
 
   const { setNodeRef, isOver } = useDroppable({
     id: 'deck',
@@ -37,15 +36,21 @@ export const Deck = () => {
     .filter((c): c is NonNullable<typeof c> => c !== undefined);
 
   const hasSortedCards = cards.length > unsortedCardIds.length;
+  const parsedBulkCards = isEditing ? parseMarkdownCards(bulkText) : [];
 
-  const handleAddCard = () => {
-    if (newLabel.trim()) {
-      addCard(newLabel.trim(), newDescription.trim() || undefined);
-      setNewLabel('');
-      setNewDescription('');
-      setIsAdding(false);
-    }
-  };
+  const diffSummary = useMemo(() => {
+    if (!isEditing) return null;
+    const added = Math.max(0, parsedBulkCards.length - cards.length);
+    const updated = parsedBulkCards.slice(0, cards.length).filter((nc, i) => {
+      const existing = cards[i];
+      return nc.label !== existing.label || nc.description !== existing.description;
+    }).length;
+    return { added, updated };
+  }, [isEditing, parsedBulkCards, cards]);
+
+  const hasChanges = diffSummary
+    ? diffSummary.added > 0 || diffSummary.updated > 0
+    : false;
 
   const handleMarkdownImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -63,9 +68,7 @@ export const Deck = () => {
         : `${parsed.length} card${parsed.length === 1 ? '' : 's'} added`
     );
 
-    // Reset input so the same file can be re-imported if the user edits it
     e.target.value = '';
-
     setTimeout(() => setImportFeedback(null), 3000);
   };
 
@@ -75,10 +78,20 @@ export const Deck = () => {
     setConfirmingReset(false);
   };
 
+  const handleOpenEditor = () => {
+    setBulkText(cardsToMarkdownString(cards));
+    setIsEditing(true);
+  };
+
+  const handleSave = () => {
+    reconcileCards(parsedBulkCards);
+    setBulkText('');
+    setIsEditing(false);
+  };
+
   const handleCancel = () => {
-    setNewLabel('');
-    setNewDescription('');
-    setIsAdding(false);
+    setBulkText('');
+    setIsEditing(false);
   };
 
   return (
@@ -103,7 +116,7 @@ export const Deck = () => {
             `${unsortedCards.length} unsorted card${unsortedCards.length === 1 ? '' : 's'}`
           )}
         </h3>
-        {!isAdding && (
+        {!isEditing && (
           <div className="flex items-center gap-2">
             {importFeedback && (
               <span className="text-xs text-green-600 font-medium">{importFeedback}</span>
@@ -165,47 +178,39 @@ export const Deck = () => {
               </div>
             </div>
             <button
-              onClick={() => setIsAdding(true)}
+              onClick={handleOpenEditor}
               className="btn-cta px-3 py-1 text-xs font-medium rounded"
             >
-              + Add Card
+              Edit Cards
             </button>
           </div>
         )}
       </div>
 
-      {/* Add card form */}
-      {isAdding && (
+      {/* Edit cards form */}
+      {isEditing && (
         <div className="mb-4 p-3 bg-white border border-gray-300 rounded-lg">
-          <input
-            type="text"
-            placeholder="Card label"
-            value={newLabel}
-            onChange={(e) => setNewLabel(e.target.value)}
+          <textarea
+            placeholder={`## Card label\nOptional description\n\n## Another card\nAnother description`}
+            value={bulkText}
+            onChange={(e) => setBulkText(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') handleAddCard();
               if (e.key === 'Escape') handleCancel();
             }}
-            className="w-full px-2 py-1 text-sm border border-gray-300 rounded mb-2 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+            rows={10}
+            className="w-full px-2 py-1.5 text-xs font-mono border border-gray-300 rounded mb-1.5 focus:outline-none focus:ring-2 focus:ring-emerald-600 resize-none"
             autoFocus
           />
-          <input
-            type="text"
-            placeholder="Description (optional)"
-            value={newDescription}
-            onChange={(e) => setNewDescription(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') handleAddCard();
-              if (e.key === 'Escape') handleCancel();
-            }}
-            className="w-full px-2 py-1 text-xs border border-gray-300 rounded mb-2 focus:outline-none focus:ring-2 focus:ring-emerald-600"
-          />
-          <div className="flex gap-2">
+          <p className="text-xs text-gray-400 mb-2">
+            Cards are matched by position. Edit labels or descriptions freely — sorting is preserved. New cards added at the end go to unsorted.
+          </p>
+          <div className="flex gap-2 items-center flex-wrap">
             <button
-              onClick={handleAddCard}
-              className="btn-cta px-3 py-1 text-xs font-medium rounded"
+              onClick={handleSave}
+              disabled={!hasChanges}
+              className="btn-cta px-3 py-1 text-xs font-medium rounded disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              Add
+              Save changes
             </button>
             <button
               onClick={handleCancel}
@@ -213,6 +218,14 @@ export const Deck = () => {
             >
               Cancel
             </button>
+            {diffSummary && (diffSummary.added > 0 || diffSummary.updated > 0) && (
+              <span className="text-xs text-gray-500 ml-1">
+                {[
+                  diffSummary.added > 0 && `+${diffSummary.added} added`,
+                  diffSummary.updated > 0 && `${diffSummary.updated} updated`,
+                ].filter(Boolean).join(' · ')}
+              </span>
+            )}
           </div>
         </div>
       )}
@@ -239,7 +252,7 @@ export const Deck = () => {
         </div>
         </div>
       ) : (
-        !isAdding && (
+        !isEditing && (
           <div className="text-center py-4 text-gray-400 text-sm">
             No more cards left!
           </div>

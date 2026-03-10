@@ -1,20 +1,23 @@
 import type { ProjectState } from '../store/types';
 
 /**
+ * Serializes cards to markdown string (heading format)
+ */
+export const cardsToMarkdownString = (cards: ProjectState['cards']): string => {
+  const lines: string[] = [];
+  for (const card of cards) {
+    lines.push(`## ${card.label}`);
+    if (card.description) lines.push(card.description);
+    lines.push('');
+  }
+  return lines.join('\n').trimEnd();
+};
+
+/**
  * Exports all cards to a downloadable .md file in heading format
  */
 export const exportCardsToMarkdown = (state: ProjectState): void => {
-  const lines: string[] = [`# ${state.meta.title}`, ''];
-
-  for (const card of state.cards) {
-    lines.push(`## ${card.label}`);
-    if (card.description) {
-      lines.push(card.description);
-    }
-    lines.push('');
-  }
-
-  const markdown = lines.join('\n');
+  const markdown = `# ${state.meta.title}\n\n${cardsToMarkdownString(state.cards)}`;
   const blob = new Blob([markdown], { type: 'text/markdown' });
   const url = URL.createObjectURL(blob);
 

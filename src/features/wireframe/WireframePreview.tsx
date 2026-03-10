@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import './wireframe.css';
 import { useProjectStore } from '../../store/projectStore';
 import { WireframeTopNav } from './WireframeTopNav';
@@ -94,15 +94,43 @@ export const WireframePreview = () => {
             <div className="wf-leftnav-title">{meta.title}</div>
           </div>
           <div className="wf-leftnav-links">
-            {mainNavCards.map((card) => (
-              <div
-                key={card.id}
-                className={`wf-leftnav-link ${activeMainNavCardId === card.id ? 'wf-leftnav-link--active' : ''}`}
-                onClick={() => handleMainNavClick(card.id)}
-              >
-                {card.label}
-              </div>
-            ))}
+            {(() => {
+              if (!mainNavGroup?.navSections?.length) {
+                return mainNavCards.map((card) => (
+                  <div
+                    key={card.id}
+                    className={`wf-leftnav-link ${activeMainNavCardId === card.id ? 'wf-leftnav-link--active' : ''}`}
+                    onClick={() => handleMainNavClick(card.id)}
+                  >
+                    {card.label}
+                  </div>
+                ));
+              }
+              const cardToSection = new Map(
+                mainNavGroup.navSections.flatMap(s => s.cardIds.map(id => [id, s.id]))
+              );
+              const result: React.ReactNode[] = [];
+              let lastSectionId: string | null = null;
+              for (const cardId of mainNavGroup.cardIds) {
+                const sectionId = cardToSection.get(cardId) ?? null;
+                if (sectionId !== lastSectionId && sectionId !== null) {
+                  const section = mainNavGroup.navSections.find(s => s.id === sectionId);
+                  result.push(<div key={`sep-${sectionId}`} className="wf-leftnav-section">{section?.label}</div>);
+                  lastSectionId = sectionId;
+                }
+                const card = cards.find(c => c.id === cardId);
+                if (card) result.push(
+                  <div
+                    key={cardId}
+                    className={`wf-leftnav-link ${activeMainNavCardId === cardId ? 'wf-leftnav-link--active' : ''}`}
+                    onClick={() => handleMainNavClick(cardId)}
+                  >
+                    {card.label}
+                  </div>
+                );
+              }
+              return result;
+            })()}
           </div>
         </div>
         <div className="wf-leftnav-body">

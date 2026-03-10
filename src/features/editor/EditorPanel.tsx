@@ -3,6 +3,7 @@ import {
   DndContext,
   DragOverlay,
   closestCenter,
+  pointerWithin,
   PointerSensor,
   KeyboardSensor,
   useSensor,
@@ -30,8 +31,20 @@ export const EditorPanel = () => {
   const dropCardToSecondaryNav = useProjectStore((state) => state.dropCardToSecondaryNav);
   const removeCardFromSecondaryNav = useProjectStore((state) => state.removeCardFromSecondaryNav);
   const setPendingSecondaryNavPrompt = useProjectStore((state) => state.setPendingSecondaryNavPrompt);
+  const assignCardToNavSection = useProjectStore((state) => state.assignCardToNavSection);
 
   const [activeCard, setActiveCard] = useState<CardDefinition | null>(null);
+
+  // Prefer nav-section / nav-unsorted droppables when pointer is directly within them
+  const collisionDetection = (args: Parameters<typeof closestCenter>[0]) => {
+    const pointerHits = pointerWithin(args);
+    const navHit = pointerHits.find(({ data }) => {
+      const type = data?.droppableContainer?.data?.current?.type;
+      return type === 'nav-section' || type === 'nav-unsorted';
+    });
+    if (navHit) return [navHit];
+    return closestCenter(args);
+  };
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -79,6 +92,33 @@ export const EditorPanel = () => {
       return;
     }
 
+    // Scenario: Dropped on a nav-section drop zone
+    if (overData?.type === 'nav-section') {
+      const { groupId, sectionId } = overData as { groupId: string; sectionId: string };
+      const targetGroup = groups.find(g => g.id === groupId);
+      if (targetGroup?.prototypeRole === 'main-nav') {
+        if (!isFromMainNav) dropCardToMainNav(activeCardId);
+      } else if (targetGroup?.prototypeRole === 'secondary-nav') {
+        if (sourceGroup?.id !== groupId) dropCardToSecondaryNav(activeCardId, groupId);
+      }
+      assignCardToNavSection(groupId, activeCardId, sectionId);
+      return;
+    }
+
+    // Scenario: Dropped on a nav-unsorted drop zone
+    if (overData?.type === 'nav-unsorted') {
+      const { groupId } = overData as { groupId: string };
+      const targetGroup = groups.find(g => g.id === groupId);
+      if (targetGroup?.prototypeRole === 'main-nav') {
+        if (!isFromMainNav) dropCardToMainNav(activeCardId);
+        else assignCardToNavSection(groupId, activeCardId, null);
+      } else if (targetGroup?.prototypeRole === 'secondary-nav') {
+        if (sourceGroup?.id !== groupId) dropCardToSecondaryNav(activeCardId, groupId);
+        else assignCardToNavSection(groupId, activeCardId, null);
+      }
+      return;
+    }
+
     // Helper: pages owned by a secondary-nav group must not gain another secondary nav
     const isSecondaryNavOwnedPage = (target: { prototypeRole: string; ownerCardId?: string | null }) =>
       target.prototypeRole === 'page' &&
@@ -100,7 +140,10 @@ export const EditorPanel = () => {
       // Dropping into main-nav
       if (targetGroup.prototypeRole === 'main-nav') {
         if (isFromMainNav) {
-          // Already in main-nav — treat as reorder to end (handled by card drop scenario)
+          if (sourceGroup?.id !== targetGroup.id) {
+            // Moving between main-nav sections — just move the cardId, page stays intact
+            moveCard(activeCardId, targetGroup.id, targetGroup.cardIds.length);
+          }
           return;
         }
         dropCardToMainNav(activeCardId);
@@ -162,8 +205,10 @@ export const EditorPanel = () => {
       if (targetGroup.prototypeRole === 'main-nav') {
         if (!isFromMainNav) {
           dropCardToMainNav(activeCardId);
+        } else if (sourceGroup?.id !== targetGroupId) {
+          // Cross-section move — just move the cardId, page stays intact
+          moveCard(activeCardId, targetGroupId, newIndex >= 0 ? newIndex : targetGroup.cardIds.length);
         }
-        // If already in main-nav, it's a reorder that was handled above
         return;
       }
 
@@ -199,7 +244,7 @@ export const EditorPanel = () => {
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={collisionDetection}
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >

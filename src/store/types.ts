@@ -18,6 +18,12 @@ export type CardDefinition = {
   // v2 will allow manual override
 };
 
+export type NavSection = {
+  id: string;
+  label: string;
+  cardIds: string[]; // ordered subset of the group's cardIds
+};
+
 export type Group = {
   id: string;
   label: string;
@@ -30,6 +36,8 @@ export type Group = {
   // - For 'secondary-nav' groups: the card that triggered secondary nav creation
   //   (undefined if secondary-nav was added manually via the button)
   ownerCardId?: string;
+  // Optional sections for organizing main-nav cards into labeled groups
+  navSections?: NavSection[];
 };
 
 export type PendingSecondaryNavPrompt = {

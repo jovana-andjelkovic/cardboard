@@ -28,6 +28,12 @@ interface ProjectActions {
   promoteToSecondaryNav: (cardId: string, pageGroupId: string) => void;
   addSecondaryNavToPage: (pageGroupId: string) => void;
 
+  // Nav section actions (sections within main-nav)
+  addNavSection: (groupId: string, label: string) => void;
+  removeNavSection: (groupId: string, sectionId: string) => void;
+  assignCardToNavSection: (groupId: string, cardId: string, sectionId: string | null) => void;
+  addCardToNavSection: (groupId: string, sectionId: string | null, label: string, description?: string) => void;
+
   // Connection actions (still used internally + for secondary nav)
   addConnection: (fromGroupId: string, toGroupId: string) => void;
   removeConnection: (fromGroupId: string, toGroupId: string) => void;
@@ -36,6 +42,9 @@ interface ProjectActions {
   // UI state
   setPendingSecondaryNavPrompt: (prompt: PendingSecondaryNavPrompt | null) => void;
   setMainNavPosition: (position: 'top' | 'left') => void;
+
+  // Bulk edit action
+  reconcileCards: (newCardList: Array<{ label: string; description?: string }>) => void;
 
   // Snapshot actions
   getSnapshot: () => ProjectState;
@@ -348,7 +357,12 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
           const newCardIds = [...group.cardIds];
           const [movedCard] = newCardIds.splice(fromIndex, 1);
           newCardIds.splice(toIndex, 0, movedCard);
-          return { ...group, cardIds: newCardIds };
+          // Re-derive section.cardIds order from new group.cardIds order
+          const newNavSections = group.navSections?.map(section => ({
+            ...section,
+            cardIds: newCardIds.filter(id => section.cardIds.includes(id)),
+          }));
+          return { ...group, cardIds: newCardIds, navSections: newNavSections };
         }
         return group;
       }),
@@ -388,9 +402,9 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         cardIds: group.cardIds.filter(id => id !== cardId),
       }));
 
-      // Add card to main-nav
+      // Add card to the target main-nav group
       groups = groups.map(group => {
-        if (group.prototypeRole === 'main-nav') {
+        if (group.id === mainNavGroup.id) {
           return { ...group, cardIds: [...group.cardIds, cardId] };
         }
         return group;
@@ -471,7 +485,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         .filter(g => !groupIdsToRemove.has(g.id))
         .map(g => {
           if (g.prototypeRole === 'main-nav') {
-            return { ...g, cardIds: g.cardIds.filter(id => id !== cardId) };
+            return {
+              ...g,
+              cardIds: g.cardIds.filter(id => id !== cardId),
+              navSections: g.navSections?.map(s => ({
+                ...s,
+                cardIds: s.cardIds.filter(id => id !== cardId),
+              })),
+            };
           }
           return g;
         });
@@ -586,7 +607,14 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         .filter(g => !groupIdsToRemove.has(g.id))
         .map(g => {
           if (g.id === secNavGroup?.id) {
-            return { ...g, cardIds: g.cardIds.filter(id => id !== cardId) };
+            return {
+              ...g,
+              cardIds: g.cardIds.filter(id => id !== cardId),
+              navSections: g.navSections?.map(s => ({
+                ...s,
+                cardIds: s.cardIds.filter(id => id !== cardId),
+              })),
+            };
           }
           return g;
         });
@@ -685,6 +713,167 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
         version: state.meta.version + 1,
       },
     }));
+  },
+
+  addNavSection: (groupId: string, label: string) => {
+    set((state) => ({
+      groups: state.groups.map(g =>
+        g.id === groupId
+          ? { ...g, navSections: [...(g.navSections ?? []), { id: nanoid(), label, cardIds: [] }] }
+          : g
+      ),
+      meta: {
+        ...state.meta,
+        updatedAt: new Date().toISOString(),
+        version: state.meta.version + 1,
+      },
+    }));
+  },
+
+  removeNavSection: (groupId: string, sectionId: string) => {
+    set((state) => {
+      const group = state.groups.find(g => g.id === groupId);
+      if (!group) return state;
+
+      // Cards in deleted section stay in group.cardIds (become unsectioned)
+      const newNavSections = (group.navSections ?? []).filter(s => s.id !== sectionId);
+
+      // Rebuild group.cardIds: unsectioned first, then remaining sections
+      const remainingSectionCardIds = new Set(newNavSections.flatMap(s => s.cardIds));
+      const unsectionedIds = group.cardIds.filter(id => !remainingSectionCardIds.has(id));
+      const newGroupCardIds = [
+        ...unsectionedIds,
+        ...newNavSections.flatMap(s => s.cardIds),
+      ];
+
+      return {
+        groups: state.groups.map(g =>
+          g.id === groupId
+            ? { ...g, cardIds: newGroupCardIds, navSections: newNavSections }
+            : g
+        ),
+        meta: {
+          ...state.meta,
+          updatedAt: new Date().toISOString(),
+          version: state.meta.version + 1,
+        },
+      };
+    });
+  },
+
+  assignCardToNavSection: (groupId: string, cardId: string, sectionId: string | null) => {
+    set((state) => {
+      const group = state.groups.find(g => g.id === groupId);
+      if (!group) return state;
+
+      // Remove card from all sections
+      const newNavSections = (group.navSections ?? []).map(s => ({
+        ...s,
+        cardIds: s.cardIds.filter(id => id !== cardId),
+      }));
+
+      // Add to target section if provided
+      if (sectionId) {
+        const targetIdx = newNavSections.findIndex(s => s.id === sectionId);
+        if (targetIdx >= 0) {
+          newNavSections[targetIdx] = {
+            ...newNavSections[targetIdx],
+            cardIds: [...newNavSections[targetIdx].cardIds, cardId],
+          };
+        }
+      }
+
+      // Rebuild group.cardIds: unsectioned first, then sections in order
+      const inSectionIds = new Set(newNavSections.flatMap(s => s.cardIds));
+      const unsectionedIds = group.cardIds.filter(id => !inSectionIds.has(id));
+      const newGroupCardIds = [
+        ...unsectionedIds,
+        ...newNavSections.flatMap(s => s.cardIds),
+      ];
+
+      return {
+        groups: state.groups.map(g =>
+          g.id === groupId
+            ? { ...g, cardIds: newGroupCardIds, navSections: newNavSections }
+            : g
+        ),
+        meta: {
+          ...state.meta,
+          updatedAt: new Date().toISOString(),
+          version: state.meta.version + 1,
+        },
+      };
+    });
+  },
+
+  addCardToNavSection: (groupId: string, sectionId: string | null, label: string, description?: string) => {
+    const state = get();
+    const mainNavGroup = state.groups.find(g => g.id === groupId && g.prototypeRole === 'main-nav');
+    if (!mainNavGroup) return;
+
+    const newCardId = nanoid();
+    const newCard: CardDefinition = { id: newCardId, label, ...(description ? { description } : {}) };
+
+    const newPageId = nanoid();
+    const newPage: Group = {
+      id: newPageId,
+      label: `${label} Page`,
+      cardIds: [],
+      prototypeRole: 'page',
+      order: state.groups.length,
+      ownerCardId: newCardId,
+    };
+
+    // Add to target section's cardIds if provided
+    const newNavSections = sectionId
+      ? (mainNavGroup.navSections ?? []).map(s =>
+          s.id === sectionId ? { ...s, cardIds: [...s.cardIds, newCardId] } : s
+        )
+      : mainNavGroup.navSections;
+
+    // Rebuild group.cardIds: unsectioned first, then sections in order
+    const inSectionIds = new Set((newNavSections ?? []).flatMap(s => s.cardIds));
+    const existingUnsectioned = mainNavGroup.cardIds.filter(id => !inSectionIds.has(id));
+    const newGroupCardIds = sectionId
+      ? [...existingUnsectioned, ...(newNavSections ?? []).flatMap(s => s.cardIds)]
+      : [...existingUnsectioned, newCardId, ...(newNavSections ?? []).flatMap(s => s.cardIds)];
+
+    set((state) => ({
+      cards: [...state.cards, newCard],
+      groups: [
+        ...state.groups.map(g =>
+          g.id === groupId
+            ? { ...g, cardIds: newGroupCardIds, navSections: newNavSections }
+            : g
+        ),
+        newPage,
+      ],
+      connections: [
+        ...state.connections,
+        { fromGroupId: groupId, toGroupId: newPageId },
+      ],
+      meta: {
+        ...state.meta,
+        updatedAt: new Date().toISOString(),
+        version: state.meta.version + 1,
+      },
+    }));
+  },
+
+  reconcileCards: (newCardList) => {
+    const state = get();
+
+    // Update existing cards by position (preserves ID → group placement stays intact)
+    const matchCount = Math.min(newCardList.length, state.cards.length);
+    for (let i = 0; i < matchCount; i++) {
+      const nc = newCardList[i];
+      const existing = state.cards[i];
+      get().updateCard(existing.id, { label: nc.label, description: nc.description });
+    }
+
+    // Add any extra cards beyond the existing count → unsorted
+    const toAdd = newCardList.slice(state.cards.length);
+    if (toAdd.length > 0) get().bulkAddCards(toAdd);
   },
 
   // Connection actions (used internally; secondary nav still uses explicit connections)
